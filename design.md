@@ -1,9 +1,8 @@
-# Machine Learning Engineer Nanodegree
-## Capstone Proposal
-Renato L. F. Cunha
-May 28th, 2017
+% Machine Learning Engineer Nanodegree
+% Renato L. F. Cunha
+% May 28th, 2017
 
-## Stock Price Indicator
+## Stock Price Indicator Capstone Proposal
 
 ### Domain Background
 
