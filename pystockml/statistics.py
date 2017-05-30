@@ -81,12 +81,31 @@ def volatility(values, period=TRADING_DAYS_IN_YEAR):
     return np.hstack((head, tail))
 
 
-def beta(values, benchmark):
+def historical_beta(values, benchmark):
     'Computes the financial beta between a stock and a benchmark.'
 
-    cov = np.cov(np.vstack((values, benchmark)).T)
+    cov = np.cov(np.vstack((values, benchmark)))
 
-    return cov / benchmark.var()
+    return (cov / benchmark.var())[0, 1]
+
+
+def beta(values, benchmark, period=TRADING_DAYS_IN_YEAR):
+    'Rolling beta. Like `volatility`.'
+
+    if not isinstance(values, np.ndarray):
+        values = values.values
+    if not isinstance(benchmark, np.ndarray):
+        benchmark = benchmark.values
+
+    head = np.array([float('nan')] * period)
+
+    tail = np.array([
+        historical_beta(values[i:i + period], benchmark[i:i + period])
+        for i in range(len(values) - period)
+    ])
+
+    return np.hstack((head, tail))
+
 
 def exponential_rolling_mean(values):
     'Computes the exponential rolling mean of values.'
@@ -105,7 +124,7 @@ def momentum(values, window=21):
     return np.hstack((beginning, values[window:] / values[:-window] - 1))
 
 
-def augment(dataframe, column='adj_close', window=21):
+def augment(dataframe, benchmark=None, column='adj_close', window=21):
     'Augments a dataframe with the statistics found in this module.'
 
     rm = rolling_mean(dataframe[column], window)
@@ -120,5 +139,8 @@ def augment(dataframe, column='adj_close', window=21):
     dataframe[r'%b'] = pb
     dataframe['momentum'] = dv
     dataframe['volatility'] = v
+
+    if benchmark is not None:
+        dataframe['beta'] = beta(dataframe[column], benchmark[column])
 
     return dataframe
