@@ -9,14 +9,34 @@ import pandas as pd
 TRADING_DAYS_IN_YEAR = 252
 
 
-def rolling_mean(values, window):
+def rolling_mean(values, window=21):
     'Computes rolling mean of given values, using a window of size `window`.'
+
+    if isinstance(values, pd.Series) or isinstance(values, pd.DataFrame):
+        return values.rolling(window=window, center=False).mean()
+
     return pd.rolling_mean(values, window=window)
 
 
-def rolling_std(values, window):
+def rolling_std(values, window=21):
     'Computes rolling std of given values, using a window of size `window`.'
+
+    if isinstance(values, pd.Series) or isinstance(values, pd.DataFrame):
+        return values.rolling(window=window, center=False).std()
+
     return pd.rolling_std(values, window=window)
+
+
+def percent_bollinger(values, rm, rstd):
+    'Computes [%b](https://en.wikipedia.org/wiki/Bollinger_Bands).'
+
+    lower, upper = bollinger_bands(rm, rstd)
+
+    if not isinstance(values, np.ndarray):
+        values = values.values
+
+    return ((np.hstack((np.array([float('nan')]), values[1:])) - lower) /
+            (upper - lower))
 
 
 def bollinger_bands(rm, rstd):
@@ -27,15 +47,38 @@ def bollinger_bands(rm, rstd):
     return lower, upper
 
 
+def bandwidth(rm, rstd):
+    'Computes bollinger bandwidth.'
+    lower, upper = bollinger_bands(rm, rstd)
+
+    return (upper - lower) / rm
+
+
 def historical_volatility(values):
     'Returns the annualized stddev of daily log returns of values.'
 
-    if not isinstance(values, np.array):
+    if not isinstance(values, np.ndarray):
         values = values.values
 
     returns = np.log(values[1:] / values[:-1])
 
     return np.sqrt(TRADING_DAYS_IN_YEAR * returns.var())
+
+
+def volatility(values, period=TRADING_DAYS_IN_YEAR):
+    'Calculates the volatility in a fixed period.'
+
+    if not isinstance(values, np.ndarray):
+        values = values.values
+
+    head = np.array([float('nan')] * period)
+
+    tail = np.array([
+        historical_volatility(values[i:i + period])
+        for i in range(len(values) - period)
+    ])
+
+    return np.hstack((head, tail))
 
 
 def beta(values, benchmark):
@@ -51,7 +94,31 @@ def exponential_rolling_mean(values):
     return pd.ewma(values)
 
 
-def momentum(values, window):
+def momentum(values, window=21):
     'Computes the momentum of values.'
 
-    return values[window:] / values[:-window] - 1
+    if not isinstance(values, np.ndarray):
+        values = values.values
+
+    beginning = np.array([float('nan')] * window)
+
+    return np.hstack((beginning, values[window:] / values[:-window] - 1))
+
+
+def augment(dataframe, column='adj_close', window=21):
+    'Augments a dataframe with the statistics found in this module.'
+
+    rm = rolling_mean(dataframe[column], window)
+    rstd = rolling_std(dataframe[column], window)
+    bw = bandwidth(rm, rstd)
+    pb = percent_bollinger(dataframe[column], rm, rstd)
+    dv = momentum(dataframe[column], window)
+    v = volatility(dataframe[column])
+
+    dataframe['sma'] = rm
+    dataframe['bandwidth'] = bw
+    dataframe[r'%b'] = pb
+    dataframe['momentum'] = dv
+    dataframe['volatility'] = v
+
+    return dataframe
