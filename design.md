@@ -79,8 +79,7 @@ For the stock predictor I intend to implement:
 
  * A training interface that accepts a data range `(start_date, end_date)` and
    a list of ticker symbols (e.g. GOOG, AAPL), and builds a model of stock
-   behavior. Your code should read the desired historical prices from the data
-   source of your choice.
+   behavior.
 
  * A query interface that accepts a list of dates and a list of ticker symbols,
    and outputs the predicted stock prices for each of those stocks on the given
