@@ -143,4 +143,4 @@ def augment(dataframe, benchmark=None, column='adj_close', window=21):
     if benchmark is not None:
         dataframe['beta'] = beta(dataframe[column], benchmark[column])
 
-    return dataframe
+    return dataframe.ix[TRADING_DAYS_IN_YEAR:]
