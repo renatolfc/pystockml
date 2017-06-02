@@ -208,13 +208,21 @@ def main():
     X, y = build_dataset(df, shift, 'all', lookback)
     tscv = TimeSeriesSplit(n_splits=3)
 
-    arima = ArimaRegressor()
+    arima = ArimaRegressor(10, 0, 1)
     linear = build_linear_regressor()
     for train_index, test_index in tscv.split(X):
         X_train, X_test = X[train_index], X[test_index]
         y_train, y_test = y[train_index], y[test_index]
 
         sma_yhat = sma_predictions(X_test[:, 0])
+
+        if lookback:
+            arima.fit(X_train[:, -1, 0], y_train[:, 0])
+            arima_yhat = arima.predict(X_test[:, -1, 0].reshape((-1, 1)),
+                                       refit=True)
+        else:
+            arima.fit(X_train[:, 0], y_train[:, 0])
+            arima_yhat = arima.predict(X_test[:, 0], refit=True)
 
         if lookback:
             linear.fit(X_train[:, -1, 0].reshape((-1, 1)),
@@ -241,13 +249,6 @@ def main():
                  1 if not lookback else lookback,
                  X_test_lstm.shape[-1])
             )
-
-        if lookback:
-            arima.fit(X_train[:, -1, 0])
-            arima_yhat = arima.predict(X_test[:, -1, 0].reshape((-1, 1)))
-        else:
-            arima.fit(X_train[:, 0])
-            arima_yhat = arima.predict(X_test[:, 0])
 
         lstm = build_lstm(input_length=lookback if lookback else 1)
         lstm.fit(X_train_lstm, y_train[:, 0], epochs=200, batch_size=256,
