@@ -260,6 +260,8 @@ def main():
         true_yhat = scaler.inverse_transform(tmp)[:, 0]
         tmp[:, 0] = lstm_yhat.reshape((-1,))
         true_lstm_yhat = scaler.inverse_transform(tmp)[:, 0]
+        tmp[:, 0] = arima_yhat.reshape((-1,))
+        true_arima_yhat = scaler.inverse_transform(tmp)[:, 0]
 
         tmp[:, 0] = sma_yhat
         true_sma_yhat = scaler.inverse_transform(tmp)[:, 0]
@@ -273,12 +275,16 @@ def main():
         score = mse(true_lstm_yhat, true_y_test)
         print('LSTM Mean Squared Error:', score)
 
+        score = mse(true_arima_yhat, true_y_test)
+        print('ARIMA Mean Squared Error:', score)
+
         plt.plot(true_sma_yhat)
         plt.plot(true_yhat)
         plt.plot(true_lstm_yhat)
+        plt.plot(true_arima_yhat)
         plt.plot(true_y_test)
 
-        plt.legend(('Benchmark', 'Linear Regression', 'LSTM', 'Actual'))
+        plt.legend(('Benchmark', 'Linear Regression', 'LSTM', 'ARIMA', 'Actual'))
 
         plt.show()
 
