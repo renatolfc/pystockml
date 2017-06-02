@@ -41,17 +41,17 @@ class ArimaRegressor(BaseEstimator, RegressorMixin):
 
         self.model, self.model_fit = None, None
 
-    def fit(self, X, y=None):
+    def fit(self, X, y):
         '''Fit model.
 
         :param X: The input time series.
-        :param y: Not used.
+        :param y: The actual values.
 
         This method also stores the provided X and y parameters, because we
         need them to retrain the ARIMA model every time we do a new prediction.
         '''
 
-        self.X_train_ = [x for x in X]
+        self.y_train_ = [y_ for y_ in y]
 
         self._fit()
 
@@ -61,7 +61,7 @@ class ArimaRegressor(BaseEstimator, RegressorMixin):
         'Updates the model using the stored X and y arrays.'
 
         self.model = ARIMA(
-            self.X_train_,
+            self.y_train_,
             order=(self.n_ar_params, self.n_ar_diffs, self.n_ma_params)
         )
         self.model_fit = self.model.fit(disp=0)
@@ -76,19 +76,21 @@ class ArimaRegressor(BaseEstimator, RegressorMixin):
                                  "yet" % {'name': type(self).__name__})
 
         if not refit:
-            return self.model_fit.forecast(len(X))
+            return self.model_fit.forecast(len(X))[0]
 
         try:
             len(X)
         except TypeError:
             # X is a scalar
-            yhat = self.model.forecast()[0]
+            yhat = self.model_fit.forecast()[0]
+            self.y_train_.append(X)
             self._fit()
             return yhat
 
         yhat = []
         for x in X:
-            yhat.append(self.model.forecast()[0])
+            yhat.append(self.model_fit.forecast()[0])
+            self.y_train_.append(x)
             self._fit()
 
         return np.array(yhat)
