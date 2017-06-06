@@ -25,6 +25,44 @@ from pystockml import statistics
 COLUMNS = r'adj_close sma bandwidth %b momentum volatility beta'.split()
 
 
+class LstmRegressor(BaseEstimator, RegressorMixin):
+    def __init__(self, input_dim=1, input_length=1, output_dim=1, dropout=.4,
+                 hidden_size=32, layers=3, loss='mse', optimizer='nadam'):
+
+        if layers <= 2:
+            raise ValueError('LstmRegressor must have at least two layers.')
+
+        model = Sequential()
+
+        model.add(LSTM(input_shape=(input_length, input_dim), units=hidden_size,
+                       return_sequences=True))
+        model.add(Dropout(dropout))
+
+        for _ in range(layers - 2):
+            model.add(LSTM(hidden_size, return_sequences=True))
+            model.add(Dropout(dropout))
+
+        model.add(LSTM(hidden_size, return_sequences=False))
+        model.add(Dropout(dropout))
+
+        model.add(Dense(units=output_dim))
+        model.add(Activation('linear'))
+
+        model.compile(loss=loss, optimizer=optimizer)
+
+        self.model = model
+
+
+    def fit(self, X, y, epochs=200, batch_size=256, verbose=0):
+        self.model.fit(X, y, epochs=epochs, batch_size=batch_size,
+                       verbose=verbose)
+        return self
+
+
+    def predict(self, X):
+        return self.model.predict(X)
+
+
 class ArimaRegressor(BaseEstimator, RegressorMixin):
     def __init__(self, n_ar_params=3, n_ar_diffs=1, n_ma_params=1, freq='D'):
         '''Builds an ARIMA regressor.
