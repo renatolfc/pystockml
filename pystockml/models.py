@@ -200,27 +200,16 @@ def build_dataset(values, shift=1, price_column=0, lookback=0):
 
 
 def build_lstm(input_dim=1, input_length=1, output_dim=1, dropout=0.4,
-               hidden_size=32, layers=3):
+               hidden_size=32, layers=3, loss='mse', optimizer='nadam'):
 
-    model = Sequential()
+    return LstmRegressor(
+        input_dim, input_length, output_dim, dropout, hidden_size, layers,
+        loss, optimizer
+    )
 
-    model.add(LSTM(input_shape=(input_length, input_dim), units=hidden_size,
-                   return_sequences=True))
-    model.add(Dropout(dropout))
 
-    for _ in range(layers - 2):
-        model.add(LSTM(hidden_size, return_sequences=True))
-        model.add(Dropout(dropout))
-
-    model.add(LSTM(hidden_size, return_sequences=False))
-    model.add(Dropout(dropout))
-
-    model.add(Dense(units=output_dim))
-    model.add(Activation('linear'))
-
-    model.compile(loss='mse', optimizer='nadam')
-
-    return model
+def build_arima(n_ar_params=3, n_ar_diffs=1, n_ma_params=1, freq='D'):
+    return ArimaRegressor(n_ar_params, n_ar_diffs, n_ma_params, freq)
 
 
 def build_linear_regressor(normalize=False):
