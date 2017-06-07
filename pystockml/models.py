@@ -237,7 +237,7 @@ def main():
     import matplotlib.pyplot as plt
 
     ticker = 'IBM'
-    df = load_data('data/%s.csv' % ticker)
+    df = load_data('data/%s.csv.gz' % ticker)
     df, scaler = preprocess_data(df.values)
 
     shift = 1
