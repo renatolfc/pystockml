@@ -226,8 +226,8 @@ def build_ridge_regressor(normalize=False):
     return Ridge(normalize=normalize)
 
 
-def build_huber_regressor(normalize=False):
-    return HuberRegressor(normalize=normalize, n_jobs=-1)
+def build_huber_regressor():
+    return HuberRegressor()
 
 
 def main():
