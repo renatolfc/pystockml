@@ -10,7 +10,7 @@ from keras.layers.core import Dense, Activation, Dropout
 from keras.layers.recurrent import LSTM
 from keras.models import Sequential
 
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge, HuberRegressor
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error as mse
 from sklearn.model_selection import TimeSeriesSplit
@@ -221,6 +221,14 @@ def sma_predictions(X_test):
     return X_test[:, sma_column]
 
 
+def build_ridge_regressor():
+    return Ridge()
+
+
+def build_huber_regressor():
+    return HuberRegressor()
+
+
 def main():
     np.random.seed(1234)
 
@@ -232,18 +240,20 @@ def main():
     df, scaler = preprocess_data(df.values)
 
     shift = 1
-    lookback = 42
+    lookback = 0
     X, y = build_dataset(df, shift, 'all', lookback)
     tscv = TimeSeriesSplit(n_splits=3)
 
     arima = ArimaRegressor(5, 1, 1)
+    huber = build_huber_regressor()
+    ridge = build_ridge_regressor()
     linear = build_linear_regressor()
     for i, (train_index, test_index) in enumerate(tscv.split(X)):
         try:
             X_train, X_test = X[train_index], X[test_index]
             y_train, y_test = y[train_index], y[test_index]
 
-            sma_yhat = sma_predictions(X_test[:, 0])
+            sma_yhat = sma_predictions(X_test)
 
             if lookback:
                 arima.fit(X_train[:, -1, 0], y_train[:, 0])
@@ -260,6 +270,22 @@ def main():
             else:
                 linear.fit(X_train, y_train[:, 0])
                 yhat = linear.predict(X_test)
+
+            if lookback:
+                ridge.fit(X_train[:, -1, 0].reshape((-1, 1)),
+                          y_train[:, 0].reshape((-1, 1)))
+                ridge_yhat = ridge.predict(X_test[:, -1, 0].reshape((-1, 1)))
+            else:
+                ridge.fit(X_train, y_train[:, 0])
+                ridge_yhat = ridge.predict(X_test)
+
+            if lookback:
+                huber.fit(X_train[:, -1, 0].reshape((-1, 1)),
+                          y_train[:, 0].reshape((-1, 1)))
+                huber_yhat = huber.predict(X_test[:, -1, 0].reshape((-1, 1)))
+            else:
+                huber.fit(X_train, y_train[:, 0])
+                huber_yhat = huber.predict(X_test)
 
             if lookback:
                 X_train_lstm = X_train[:, :, 0].reshape((-1, lookback, 1))
@@ -292,6 +318,10 @@ def main():
             true_lstm_yhat = scaler.inverse_transform(tmp)[:, 0]
             tmp[:, 0] = arima_yhat.reshape((-1,))
             true_arima_yhat = scaler.inverse_transform(tmp)[:, 0]
+            tmp[:, 0] = ridge_yhat.reshape((-1,))
+            true_ridge_yhat = scaler.inverse_transform(tmp)[:, 0]
+            tmp[:, 0] = huber_yhat.reshape((-1,))
+            true_huber_yhat = scaler.inverse_transform(tmp)[:, 0]
 
             tmp[:, 0] = sma_yhat
             true_sma_yhat = scaler.inverse_transform(tmp)[:, 0]
@@ -308,18 +338,27 @@ def main():
             score = mse(true_arima_yhat, true_y_test)
             print('ARIMA Mean Squared Error:', score)
 
+            score = mse(true_ridge_yhat, true_y_test)
+            print('ridge Mean Squared Error:', score)
+
+            score = mse(true_huber_yhat, true_y_test)
+            print('huber Mean Squared Error:', score)
+
             fig = plt.figure()
 
             plt.plot(true_sma_yhat)
             plt.plot(true_yhat)
             plt.plot(true_lstm_yhat)
             plt.plot(true_arima_yhat)
+            plt.plot(true_ridge_yhat)
+            plt.plot(true_huber_yhat)
             plt.plot(true_y_test)
 
             plt.legend(('Benchmark', 'Linear Regression', 'LSTM', 'ARIMA', 'Actual'))
             fig.savefig('%s-%d.pdf' % (ticker, i))
 
         except Exception as e:
+            raise
             print('Found exception %s. Continuing...' % e)
 
 
