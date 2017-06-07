@@ -14,6 +14,7 @@ from sklearn.linear_model import LinearRegression, Ridge, HuberRegressor
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error as mse
 from sklearn.model_selection import TimeSeriesSplit
+from sklearn.neighbors import KNeighborsRegressor
 
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.exceptions import NotFittedError
@@ -221,12 +222,12 @@ def sma_predictions(X_test):
     return X_test[:, sma_column]
 
 
-def build_ridge_regressor():
-    return Ridge()
+def build_ridge_regressor(normalize=False):
+    return Ridge(normalize=normalize)
 
 
-def build_huber_regressor():
-    return HuberRegressor()
+def build_huber_regressor(normalize=False):
+    return HuberRegressor(normalize=normalize, n_jobs=-1)
 
 
 def main():
