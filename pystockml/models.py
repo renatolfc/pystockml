@@ -183,7 +183,7 @@ def build_dataset(values, shift=1, price_column=0, lookback=0):
         # >>> a = [1]
         # >>> a[0-0:0+1]
         # >>> [1]
-        x.append(values[i-lookback:i])
+        x.append(values[i-lookback:i+1])
         if price_column == 'all' or columns is None:
             y.append(values[i+shift])
         else:
