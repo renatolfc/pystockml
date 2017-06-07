@@ -227,7 +227,8 @@ def main():
     import seaborn as sns
     import matplotlib.pyplot as plt
 
-    df = load_data('data/T.csv')
+    ticker = 'IBM'
+    df = load_data('data/%s.csv' % ticker)
     df, scaler = preprocess_data(df.values)
 
     shift = 1
@@ -237,84 +238,89 @@ def main():
 
     arima = ArimaRegressor(10, 0, 1)
     linear = build_linear_regressor()
-    for train_index, test_index in tscv.split(X):
-        X_train, X_test = X[train_index], X[test_index]
-        y_train, y_test = y[train_index], y[test_index]
+    for i, (train_index, test_index) in enumerate(tscv.split(X)):
+        try:
+            X_train, X_test = X[train_index], X[test_index]
+            y_train, y_test = y[train_index], y[test_index]
 
-        sma_yhat = sma_predictions(X_test[:, 0])
+            sma_yhat = sma_predictions(X_test[:, 0])
 
-        if lookback:
-            arima.fit(X_train[:, -1, 0], y_train[:, 0])
-            arima_yhat = arima.predict(X_test[:, -1, 0].reshape((-1, 1)),
-                                       refit=True)
-        else:
-            arima.fit(X_train[:, 0], y_train[:, 0])
-            arima_yhat = arima.predict(X_test[:, 0], refit=True)
+            if lookback:
+                arima.fit(X_train[:, -1, 0], y_train[:, 0])
+                arima_yhat = arima.predict(X_test[:, -1, 0].reshape((-1, 1)),
+                                           refit=False)
+            else:
+                arima.fit(X_train[:, 0], y_train[:, 0])
+                arima_yhat = arima.predict(X_test[:, 0], refit=False)
 
-        if lookback:
-            linear.fit(X_train[:, -1, 0].reshape((-1, 1)),
-                       y_train[:, 0].reshape((-1, 1)))
-            yhat = linear.predict(X_test[:, -1, 0].reshape((-1, 1)))
-        else:
-            linear.fit(X_train, y_train[:, 0])
-            yhat = linear.predict(X_test)
+            if lookback:
+                linear.fit(X_train[:, -1, 0].reshape((-1, 1)),
+                           y_train[:, 0].reshape((-1, 1)))
+                yhat = linear.predict(X_test[:, -1, 0].reshape((-1, 1)))
+            else:
+                linear.fit(X_train, y_train[:, 0])
+                yhat = linear.predict(X_test)
 
-        if lookback:
-            X_train_lstm = X_train[:, :, 0].reshape((-1, lookback, 1))
-            X_test_lstm = X_test[:, :, 0].reshape((-1, lookback, 1))
-        else:
-            X_train_lstm = X_train[:, 0].reshape((-1, 1))
-            X_train_lstm = X_train_lstm.reshape(
-                (X_train_lstm.shape[0],
-                 1 if not lookback else lookback,
-                 X_train_lstm.shape[-1])
-            )
+            if lookback:
+                X_train_lstm = X_train[:, :, 0].reshape((-1, lookback, 1))
+                X_test_lstm = X_test[:, :, 0].reshape((-1, lookback, 1))
+            else:
+                X_train_lstm = X_train[:, 0].reshape((-1, 1))
+                X_train_lstm = X_train_lstm.reshape(
+                    (X_train_lstm.shape[0],
+                     1 if not lookback else lookback,
+                     X_train_lstm.shape[-1])
+                )
 
-            X_test_lstm = X_test[:, 0].reshape((-1, 1))
-            X_test_lstm = X_test_lstm.reshape(
-                (X_test_lstm.shape[0],
-                 1 if not lookback else lookback,
-                 X_test_lstm.shape[-1])
-            )
+                X_test_lstm = X_test[:, 0].reshape((-1, 1))
+                X_test_lstm = X_test_lstm.reshape(
+                    (X_test_lstm.shape[0],
+                     1 if not lookback else lookback,
+                     X_test_lstm.shape[-1])
+                )
 
-        lstm = build_lstm(input_length=lookback if lookback else 1)
-        lstm.fit(X_train_lstm, y_train[:, 0], epochs=200, batch_size=256,
-                 verbose=1)
-        lstm_yhat = lstm.predict(X_test_lstm)
+            lstm = build_lstm(input_length=lookback if lookback else 1)
+            lstm.fit(X_train_lstm, y_train[:, 0], epochs=200, batch_size=256,
+                     verbose=1)
+            lstm_yhat = lstm.predict(X_test_lstm)
 
-        true_y_test = scaler.inverse_transform(y_test)[:, 0]
-        tmp = y_test.copy()
-        tmp[:, 0] = yhat.reshape((-1,))
-        true_yhat = scaler.inverse_transform(tmp)[:, 0]
-        tmp[:, 0] = lstm_yhat.reshape((-1,))
-        true_lstm_yhat = scaler.inverse_transform(tmp)[:, 0]
-        tmp[:, 0] = arima_yhat.reshape((-1,))
-        true_arima_yhat = scaler.inverse_transform(tmp)[:, 0]
+            true_y_test = scaler.inverse_transform(y_test)[:, 0]
+            tmp = y_test.copy()
+            tmp[:, 0] = yhat.reshape((-1,))
+            true_yhat = scaler.inverse_transform(tmp)[:, 0]
+            tmp[:, 0] = lstm_yhat.reshape((-1,))
+            true_lstm_yhat = scaler.inverse_transform(tmp)[:, 0]
+            tmp[:, 0] = arima_yhat.reshape((-1,))
+            true_arima_yhat = scaler.inverse_transform(tmp)[:, 0]
 
-        tmp[:, 0] = sma_yhat
-        true_sma_yhat = scaler.inverse_transform(tmp)[:, 0]
+            tmp[:, 0] = sma_yhat
+            true_sma_yhat = scaler.inverse_transform(tmp)[:, 0]
 
-        score = mse(true_sma_yhat, true_y_test)
-        print('Benchmark Mean Squared Error:', score)
+            score = mse(true_sma_yhat, true_y_test)
+            print('Benchmark Mean Squared Error:', score)
 
-        score = mse(true_yhat, true_y_test)
-        print('Linear Mean Squared Error:', score)
+            score = mse(true_yhat, true_y_test)
+            print('Linear Mean Squared Error:', score)
 
-        score = mse(true_lstm_yhat, true_y_test)
-        print('LSTM Mean Squared Error:', score)
+            score = mse(true_lstm_yhat, true_y_test)
+            print('LSTM Mean Squared Error:', score)
 
-        score = mse(true_arima_yhat, true_y_test)
-        print('ARIMA Mean Squared Error:', score)
+            score = mse(true_arima_yhat, true_y_test)
+            print('ARIMA Mean Squared Error:', score)
 
-        plt.plot(true_sma_yhat)
-        plt.plot(true_yhat)
-        plt.plot(true_lstm_yhat)
-        plt.plot(true_arima_yhat)
-        plt.plot(true_y_test)
+            fig = plt.figure()
 
-        plt.legend(('Benchmark', 'Linear Regression', 'LSTM', 'ARIMA', 'Actual'))
+            plt.plot(true_sma_yhat)
+            plt.plot(true_yhat)
+            plt.plot(true_lstm_yhat)
+            plt.plot(true_arima_yhat)
+            plt.plot(true_y_test)
 
-        plt.show()
+            plt.legend(('Benchmark', 'Linear Regression', 'LSTM', 'ARIMA', 'Actual'))
+            fig.savefig('%s-%d.pdf' % (ticker, i))
+
+        except Exception as e:
+            print('Found exception %s. Continuing...' % e)
 
 
 if __name__ == '__main__':
