@@ -7,12 +7,41 @@ _(approx. 1-2 pages)_
 
 ## Project Overview
 
-In this section, look to provide a high-level overview of the project in
-layman’s terms. Questions to ask yourself when writing this section:
-- _Has an overview of the project been provided, such as the problem domain,
-  project origin, and related datasets or input data?_
-- _Has enough background information been given so that an uninformed reader
-  would understand the problem domain and following problem statement?_
+Statistical models and machine learning have been used in various domains,
+ranging from baseball player performance prediction to stock prediction.
+In the latter case, investment firms, hedge funds and small investors develop
+or follow financial models to understand and, to some extend, predict market
+behavior to make profitable investments.
+
+In this project we will exploit the wealth of historical stock data available
+on the Internet to solving the problem of predicting stock prices. In doing so,
+we will investigate the performance of various models for predicting stock
+prices for publicly-traded American companies. The data we want to predict
+looks like the one presented in Figure \ref{ibm-stock}, which shows the
+close price[^1] for IBM stock for the last 10 years.
+
+[^1]: The close price is the price of the stock at the end of a business day.
+  As will be made clear later, we do not use the exact close price, but
+  a metric derived from it.
+
+![IBM stock prices for the last 10 years.\label{ibm-stock}](img/ibm-stock.png)
+
+More specifically, the data consists of tables containing, for each stock, for
+each day: the opening price, the highest price, the lowest price, the close
+price and the number of transactions. The objective is to use this data to make
+predictions for stock prices $N$ days in advance, with $N$ in the range $[1, 5,
+10, 21]$. An excerpt of the data is shown below[^2].
+
+|date        | open   | high   | low     | close |      volume |
+|------------|--------|--------|---------|-------|-------------|
+|2006-01-03  | 82.45  | 82.55  | 80.810  | 82.06 |  11715100.0 |
+|2006-01-04  | 82.20  | 82.50  | 81.330  | 81.95 |   9832800.0 |
+|2006-01-05  | 81.40  | 82.90  | 80.999  | 82.50 |   7213400.0 |
+|2006-01-06  | 83.95  | 85.03  | 83.410  | 84.95 |   8196900.0 |
+|2006-01-09  | 83.90  | 84.25  | 83.380  | 83.73 |   6851100.0 |
+
+[^2]: Notice there is a jump from 2006-01-06 to 2006-01-09. That is due to the
+  fact we only record data for weekdays, and not weekends.
 
 ## Problem Statement
 
