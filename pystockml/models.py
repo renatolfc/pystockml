@@ -13,6 +13,7 @@ from keras.models import Sequential
 from sklearn.linear_model import LinearRegression, Ridge, HuberRegressor
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error as mse
+from sklearn.metrics import r2_score
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.neighbors import KNeighborsRegressor
 
@@ -327,23 +328,23 @@ def main():
             tmp[:, 0] = sma_yhat
             true_sma_yhat = scaler.inverse_transform(tmp)[:, 0]
 
-            score = mse(true_sma_yhat, true_y_test)
-            print('Benchmark Mean Squared Error:', score)
+            score = r2_score(true_sma_yhat, true_y_test)
+            print('Benchmark R2 Score:', score)
 
-            score = mse(true_yhat, true_y_test)
-            print('Linear Mean Squared Error:', score)
+            score = r2_score(true_yhat, true_y_test)
+            print('Linear R2 Score:', score)
 
-            score = mse(true_lstm_yhat, true_y_test)
-            print('LSTM Mean Squared Error:', score)
+            score = r2_score(true_lstm_yhat, true_y_test)
+            print('LSTM R2 Score:', score)
 
-            score = mse(true_arima_yhat, true_y_test)
-            print('ARIMA Mean Squared Error:', score)
+            score = r2_score(true_arima_yhat, true_y_test)
+            print('ARIMA R2 Score:', score)
 
-            score = mse(true_ridge_yhat, true_y_test)
-            print('ridge Mean Squared Error:', score)
+            score = r2_score(true_ridge_yhat, true_y_test)
+            print('ridge R2 Score:', score)
 
-            score = mse(true_huber_yhat, true_y_test)
-            print('huber Mean Squared Error:', score)
+            score = r2_score(true_huber_yhat, true_y_test)
+            print('huber R2 Score:', score)
 
             fig = plt.figure()
 
