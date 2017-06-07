@@ -236,7 +236,7 @@ def main():
     X, y = build_dataset(df, shift, 'all', lookback)
     tscv = TimeSeriesSplit(n_splits=3)
 
-    arima = ArimaRegressor(10, 0, 1)
+    arima = ArimaRegressor(5, 1, 1)
     linear = build_linear_regressor()
     for i, (train_index, test_index) in enumerate(tscv.split(X)):
         try:
