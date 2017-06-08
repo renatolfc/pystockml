@@ -45,6 +45,41 @@ predictions for stock prices $N$ days in advance, with $N$ in the range $[1, 5,
 
 ## Problem Statement
 
+The problem tackled by this project is that of predicting stock prices for
+future dates given historical data about such stock items. Inputs will contain
+multiple metrics, such as opening price (Open), highest price the stock traded
+at (High), how many stocks were traded (Volume) and closing price adjusted for
+stock splits and dividends (Adjusted Close). The objective in this project is
+to predict the Adjusted Close price. The simplest solution would be to predict
+the mean value of the adjusted close price, but clearly we can strive to do
+better than that.
+
+One might wonder why predict for Adjusted Close instead of just the close
+price. There are at least two reasons to use an adjusted value instead of the
+raw one:
+
+ 1. When individual stocks become too expensive, the company may want to split
+    stocks, reducing the individual price of a single stock. When that happens,
+    the price will drop, making prediction harder. For example, if an algorithm
+    was trained when a given stock cost around $ 100, but then there is a split
+    of 2, now each stock item costs $ 50, and the previous training data
+    becomes "useless". More information on this topic can be found [at
+    Wikipedia](https://en.wikipedia.org/wiki/Stock_split).
+
+ 2. Some stocks pay [dividends](https://en.wikipedia.org/wiki/Dividend) at
+    previously-determined dates. Due to that, demand for such stock increases
+    as the dividend payment date approaches, artificially inflating the stock
+    price. After the dividends are paid, the stock price converges once again
+    to its actual price.
+
+Due to the aforementioned reasons, we work with adjusted stock prices, by
+working backwards in time updating prices considering splits and dividends. One
+consequence of applying such a method, though, is that the adjusted prices of
+*all* stock items will change when a dividend or slit is found. Therefore, when
+new data arrives, models may have to be retrained.
+
+After we have adjusted prices...
+
 In this section, you will want to clearly define the problem that you are
 trying to solve, including the strategy (outline of tasks) you will use to
 achieve the desired solution. You should also thoroughly discuss what the
