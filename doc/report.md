@@ -75,41 +75,71 @@ raw one:
 Due to the aforementioned reasons, we work with adjusted stock prices, by
 working backwards in time updating prices considering splits and dividends. One
 consequence of applying such a method, though, is that the adjusted prices of
-*all* stock items will change when a dividend or slit is found. Therefore, when
-new data arrives, models may have to be retrained.
+*all* stock items will change when a dividend or split is found. Therefore, when
+new data arrives, models may have to be retrained. Also, models should output
+predicted adjusted close prices in dollars (a real number).
 
-After we have adjusted prices...
+All the major providers (examples include [Yahoo!
+Finance](https://finance.yahoo.com) and [Quandl](https://www.quandl.com/)) of
+historical stock data already provide adjusted stock prices. Hence, no
+computation is needed on our part to compute adjusted values.
 
-In this section, you will want to clearly define the problem that you are
-trying to solve, including the strategy (outline of tasks) you will use to
-achieve the desired solution. You should also thoroughly discuss what the
-intended solution will be for this problem. Questions to ask yourself when
-writing this section:
+### Feature Engineering
 
-- _Is the problem statement clearly defined? Will the reader understand what
-  you are expecting to solve?_
-- _Have you thoroughly discussed how you will attempt to solve the problem?_
-- _Is an anticipated solution clearly defined? Will the reader understand what
-  results you are looking for?_
+Although we don't *have* to compute adjusted prices, we can augment our data by
+computing useful statistics. In this project we will focus on the following
+ones:
+
+ 1. The *rolling mean* gives us the average value of a stock in the last $n$
+    days (in this project we will use $n=21$, roughly a month in business
+    days);
+ 2. Bollinger bands and metrics derived from it, such as
+    [*bandwidth*](https://en.wikipedia.org/wiki/Bollinger_Bands#Indicators_derived_from_Bollinger_Bands)
+    and %b, in the hope of identifying opportunities in the valuation of
+    a stock;
+ 3. [*Momentum*](https://en.wikipedia.org/wiki/Momentum_(finance)), which
+    indicates the trend of a given stock;
+ 4. [*Volatility*](https://en.wikipedia.org/wiki/Volatility_(finance)), which
+    represents the degree of variation of a trading price over time;
+ 5. [*Beta*](https://en.wikipedia.org/wiki/Beta_(finance)), which indicates
+    whether a stock is more or less volatile than the market as a whole[^3].
+
+[^3]: Since we do not have data about the whole market, in this project we will
+  use the S&P 500 prices as a proxy for the performance of the market as
+  a whole.
+
+As can be seen from the references, all of the aforementioned features are used
+in finance, and seem to be relevant to the problem.
 
 ## Metrics
 
-In this section, you will need to clearly define the metrics or calculations
-you will use to measure performance of a model or result in your project. These
-calculations and metrics should be justified based on the characteristics of
-the problem and problem domain. Questions to ask yourself when writing this
-section:
+Since this is a regression problem, for we are predicting a single number, we
+should use a metric that works correctly with regressions. Initially, it was
+thought that mean squared error would be a good metric, but it only allows the
+ordering of the quality of models within one dataset. In short: the mean
+squared error (and even the root mean squared error) is larger or shorter
+depending on the magnitude of values.
 
-- _Are the metrics you’ve chosen to measure the performance of your models
-  clearly discussed and defined?_
-- _Have you provided reasonable justification for the metrics chosen based on
-  the problem and solution?_
-
+For the reasons above, we will be using the [*coefficient of
+determination*](https://en.wikipedia.org/wiki/Coefficient_of_determination), or
+$R^2$ as the performance measurement metric. The $R^2$ score has the advantage
+of being independent of magnitude of the data and of being standardize, where
+1 is the score of a model that perfectly fits the data.
 
 # II. Analysis
 _(approx. 2-4 pages)_
 
 ## Data Exploration
+
+For obtaining the data we used the [Quandl
+API](https://pypi.python.org/pypi/Quandl) and we downloaded the data for the
+last ten years for the following tickers: 'IBM' (IBM), 'GOOG' (Google), 'AAPL'
+(Apple), 'TSLA' (Tesla), 'BA' (Boeing), 'MSFT' (Microsoft), 'T' (AT&T), 'AIR'
+(AAR Corp.) and 'FDX' (Fedex). For obtaining the data about S&P 500 we used the
+Yahoo! Finance interface for download, since this data is not available in the
+free plan of Quandl.
+
+As already mentioned, the data is tabular data, has one entry for weekday and 
 
 In this section, you will be expected to analyze the data you are using for the
 problem. This data can either be in the form of a dataset (or datasets), input
@@ -134,6 +164,18 @@ to ask yourself when writing this section:
   outliers, etc.)_
 
 ## Exploratory Visualization
+
+To better appreciate the difference between the adjusted and non-adjusted
+prices of stock, one is directed to Figure \ref{apple-stock}. In the Figure, on
+the left, one can see that at some point in 2014 there was a sharp price drop
+in the Apple stock price due to share splits. This sharp change does not happen
+in the image on the right, due to the split being taken into account when
+computing prices.
+
+![Apple stock prices for the last 10 years.\label{apple-stock}](img/apple-stock.png)
+
+![Trends in stock prices. A sharp drop in 2008 (recession) and one seemingly
+seasonal stock.\label{four-stocks}](img/stocks.png)
 
 In this section, you will need to provide some form of visualization that
 summarizes or extracts a relevant characteristic or feature about the data. The
