@@ -129,7 +129,7 @@ of being independent of magnitude of the data and of being standardize, where
 # II. Analysis
 _(approx. 2-4 pages)_
 
-## Data Exploration
+## Data Exploration and visualization
 
 For obtaining the data we used the [Quandl
 API](https://pypi.python.org/pypi/Quandl) and we downloaded the data for the
@@ -139,31 +139,43 @@ last ten years for the following tickers: 'IBM' (IBM), 'GOOG' (Google), 'AAPL'
 Yahoo! Finance interface for download, since this data is not available in the
 free plan of Quandl.
 
-As already mentioned, the data is tabular data, has one entry for weekday and 
+As already mentioned, the data is tabular, and has one row for each weekday.
+Given that the downloaded stock are from different markets, they have very
+different characteristics. Consider, for example, the table below, that
+compares 'AIR' stock with 'TSLA' stock. Although 'TSLA' is a younger stock than
+'AIR' by 1129 days (in this dataset), when 'TSLA' stock became available, it
+was valued roughly the same as 'AIR' (Figure \ref{five-stock}). Notwithstanding
+that, from 2012 on, 'TSLA' valuation is much higher than 'AIR'. Even more
+interesting is that, being AIR a provider of services and products to the
+commercial aviation market, it is subject to some seasonality, which is
+reflected in its historic stock prices. Evidence of that can be seen in Figure
+\ref{five-stock} and in the table below, as the mean for AIR is close to its
+median value. It is worthy noting that the standard deviation of 'AIR' is
+relatively low, also suggesting some stability in prices, while the standard
+deviation of 'TSLA' is more than five times the mean of 'AIR'.
 
-In this section, you will be expected to analyze the data you are using for the
-problem. This data can either be in the form of a dataset (or datasets), input
-data (or input files), or even an environment. The type of data should be
-thoroughly described and, if possible, have basic statistics and information
-presented (such as discussion of input features or defining characteristics
-about the input or environment). Any abnormalities or interesting qualities
-about the data that may need to be addressed have been identified (such as
-features that need to be transformed or the possibility of outliers). Questions
-to ask yourself when writing this section:
+|Statistic           | 'AIR'   | 'TSLA'  |
+|--------------------|---------|---------|
+| Count              | 2870.00 | 1741.00 |
+| Mean               |   22.64 |  137.17 |
+| Standard Deviation |    5.85 |   97.11 |
+| Minimum            |    9.56 |   15.80 |
+| 25%                |   17.76 |   30.19 |
+| 50%                |   23.20 |  167.01 |
+| 75%                |   26.54 |  223.41 |
+| Maximum            |   38.49 |  325.22 |
 
-- _If a dataset is present for this problem, have you thoroughly discussed
-  certain features about the dataset? Has a data sample been provided to the
-  reader?_
-- _If a dataset is present for this problem, are statistics about the dataset
-  calculated and reported? Have any relevant results from this calculation been
-  discussed?_
-- _If a dataset is **not** present for this problem, has discussion been made
-  about the input space or input data for your problem?_
-- _Are there any abnormalities or characteristics about the input space or
-  dataset that need to be addressed? (categorical variables, missing values,
-  outliers, etc.)_
+As alluded previously, Figure \ref{five-stock} shows the behavior of five
+stocks in the dataset. (Tesla only started being publicly-traded in June 2010,
+so we only have values for dates later than that.) The stocks shown are
+examples of companies from many segments, such as technology, logistics,
+commercial aviation and defense, and an automotive industry. Interestingly
+enough, we can see a trend in 2008, where all stock prices fell, showing
+graphically one of the effects of the recession of the late 2000s. Even more
+interesting is the apparent stationarity of prices for 'AIR'.
 
-## Exploratory Visualization
+![Trends in stock prices. A sharp drop in 2008 (recession) and one seemingly
+seasonal stock.\label{five-stock}](img/stocks.png)
 
 To better appreciate the difference between the adjusted and non-adjusted
 prices of stock, one is directed to Figure \ref{apple-stock}. In the Figure, on
@@ -174,21 +186,20 @@ computing prices.
 
 ![Apple stock prices for the last 10 years.\label{apple-stock}](img/apple-stock.png)
 
-![Trends in stock prices. A sharp drop in 2008 (recession) and one seemingly
-seasonal stock.\label{four-stocks}](img/stocks.png)
-
-In this section, you will need to provide some form of visualization that
-summarizes or extracts a relevant characteristic or feature about the data. The
-visualization should adequately support the data being used. Discuss why this
-visualization was chosen and how it is relevant. Questions to ask yourself when
-writing this section:
-
-- _Have you visualized a relevant characteristic or feature about the dataset
-  or input data?_
-- _Is the visualization thoroughly analyzed and discussed?_
-- _If a plot is provided, are the axes, title, and datum clearly defined?_
-
 ## Algorithms and Techniques
+
+
+
+Being the task of predicting stock prices a regression task, we have many
+algorithms at our disposal. Since it is impossible to 
+
+ * K-nearest neighbors
+
+ * Generalized linear models
+
+ * ARIMA
+
+ * LSTM
 
 In this section, you will need to discuss the algorithms and techniques you
 intend to use for solving the problem. You should justify the use of each one
