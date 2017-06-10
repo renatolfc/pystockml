@@ -24,7 +24,8 @@ from statsmodels.tsa.arima_model import ARIMA
 
 from pystockml import statistics
 
-COLUMNS = r'adj_close sma bandwidth %b momentum volatility beta'.split()
+COLUMNS = r'adj_close sma bandwidth %b momentum volatility adj_volume '\
+           'adj_open adj_high adj_low beta'.split()
 
 
 class LstmRegressor(BaseEstimator, RegressorMixin):
@@ -148,13 +149,11 @@ def load_data(path, benchmark_path=None):
     df = pd.read_csv(path)
     df.index = df['date']
 
-    columns = COLUMNS
-
     if benchmark_path:
         benchmark = pd.read_csv(benchmark_path)
     else:
         # Remove beta, which depends on benchmark
-        columns.pop()
+        COLUMNS.pop()
 
     return statistics.augment(df, benchmark)[COLUMNS]
 
