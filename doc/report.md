@@ -188,63 +188,64 @@ computing prices.
 
 ## Algorithms and Techniques
 
-
-
 Being the task of predicting stock prices a regression task, we have many
-algorithms at our disposal. Since it is impossible to 
+algorithms at our disposal. Since it is impractical to use them all, we will
+evaluate the problem with four classes of algorithms:
 
  * K-nearest neighbors
+ * Generalized linear models: ordinary least squares, Ridge regression and
+   Huber regression
+ * [ARIMA](https://en.wikipedia.org/wiki/Autoregressive_integrated_moving_average)
+   (autoregressive integrated moving average) model.
+ * [LSTM](https://en.wikipedia.org/wiki/Long_short-term_memory) (long short-term
+   memory neural network) models.
 
- * Generalized linear models
+Prior to training the models, though, we have to pre-process our data to
+represent our input variables and our output variables. So, after obtaining our
+data and computing the additional features we mentioned in the Feature
+Engineering section, we have to build our dataset. This is done by a function
+that constructs an X matrix of our features and an y vector of our target
+variable. The target variable is always the adjusted close price. So, the only
+thing that varies in our y vector is how many days in advance we want to
+predict. In this project we will use offsets of 1 (one business day), 5 (a week
+in business days), 15 (three weeks in business days) and 21 (the average number
+of business days in a month).
 
- * ARIMA
-
- * LSTM
-
-In this section, you will need to discuss the algorithms and techniques you
-intend to use for solving the problem. You should justify the use of each one
-based on the characteristics of the problem and the problem domain. Questions
-to ask yourself when writing this section:
-
-- _Are the algorithms you will use, including any default variables/parameters
-  in the project clearly defined?_
-- _Are the techniques to be used thoroughly discussed and justified?_
-- _Is it made clear how the input data or datasets will be handled by the
-  algorithms and techniques chosen?_
+To determine the best parameters for each model we will perform a grid search
+cross-validation process.
 
 ## Benchmark
 
-In this section, you will need to provide a clearly defined benchmark result or
-threshold for comparing across performances obtained by your solution. The
-reasoning behind the benchmark (in the case where it is not an established
-result) should be discussed. Questions to ask yourself when writing this
-section:
+The simplest model that makes some sense is the mean of stock prices.
+A slightly better model would be one that outputs the *rolling* mean value of
+the stock. I will compare my model's performance with the rolling mean output
+of the last month.  Since means output the same unit of the input data, the
+benchmark model also outputs its values in dollars.
 
-- _Has some result or value been provided that acts as a benchmark for
-  measuring performance?_
-- _Is it clear how this result or value was obtained (whether by data or by
-  hypothesis)?_
-
+The rolling mean makes sense because it averages out the volatility of the
+stock, but still changes over time.
 
 # III. Methodology
 _(approx. 3-5 pages)_
 
 ## Data Preprocessing
 
-In this section, all of your preprocessing steps will need to be clearly
-documented, if any were necessary. From the previous section, any of the
-abnormalities or characteristics that you identified about the dataset will be
-addressed and corrected here. Questions to ask yourself when writing this
-section:
+The only preprocessing that is really needed is calculating the adjusted stock
+prices. Since this is already done by financial data providers, there is not
+much for us to worry about.
 
-- _If the algorithms chosen require preprocessing steps like feature selection
-  or feature transformations, have they been properly documented?_
-- _Based on the **Data Exploration** section, if there were abnormalities or
-  characteristics that needed to be addressed, have they been properly
-  corrected?_
-- _If no preprocessing is needed, has it been made clear why?_
+As mentioned before, the data is augmented by computing features based on the
+adjusted close of previous dates and its relationship with S&P 500.
 
 ## Implementation
+
+Initially I had implemented the LSTM as a class that inherited from sklearn's
+`BaseEstimator` and `RegressorMixin` classes, but I did not know how sklearn
+re-parameterized the models. Later I found out that Keras already includes an
+sklearn regressor and I refactored the code to make use of it. Basically,
+I needed to define a function that built my model and pass it to
+`KerasRegressor`, which implements the interfaces expected by sklearn.
+
 
 In this section, the process for which metrics, algorithms, and techniques that
 you implemented for the given data will need to be clearly documented. It
