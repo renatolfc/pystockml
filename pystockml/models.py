@@ -6,16 +6,19 @@
 import numpy as np
 import pandas as pd
 
+from keras.wrappers.scikit_learn import KerasRegressor
 from keras.layers.core import Dense, Activation, Dropout
 from keras.layers.recurrent import LSTM
 from keras.models import Sequential
 
+from sklearn.model_selection import GridSearchCV
 from sklearn.linear_model import LinearRegression, Ridge, HuberRegressor
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error as mse
 from sklearn.metrics import r2_score
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.ensemble import AdaBoostRegressor
 
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.exceptions import NotFittedError
@@ -24,46 +27,57 @@ from statsmodels.tsa.arima_model import ARIMA
 
 from pystockml import statistics
 
+from sklearn.externals import joblib
+
 COLUMNS = r'adj_close sma bandwidth %b momentum volatility adj_volume '\
-           'adj_open adj_high adj_low beta'.split()
+           'beta'.split()
 
 
-class LstmRegressor(BaseEstimator, RegressorMixin):
-    def __init__(self, input_dim=1, input_length=1, output_dim=1, dropout=.4,
-                 hidden_size=32, layers=3, loss='mse', optimizer='nadam'):
+def build_lstm(input_dim=1, input_length=1, output_dim=1, dropout=.4,
+               hidden_size=32, layers=3, loss='mse', optimizer='nadam',
+               learning_rate=0.01, beta_1=0.9, beta_2=0.999, epsilon=1E-8,
+               schedule_decay=0.005, rho=0.9, decay=0.0):
 
-        if layers <= 2:
-            raise ValueError('LstmRegressor must have at least two layers.')
+    from keras import optimizers
 
-        model = Sequential()
+    if optimizer not in 'adam nadam rmsprop'.split():
+        raise ValueError('Optimizer %s not supported.' % optimizer)
 
-        model.add(LSTM(input_shape=(input_length, input_dim), units=hidden_size,
-                       return_sequences=True))
+    optimizer = optimizer.lower().strip()
+    if optimizer == 'adam':
+        optimizer = optimizers.adam(lr=learning_rate, beta_1=beta_1,
+                                    beta_2=beta_2, epsilon=epsilon,
+                                    decay=decay)
+    elif optimizer == 'nadam':
+        optimizer = optimizers.nadam(lr=learning_rate, beta_1=beta_1,
+                                     beta_2=beta_2, epsilon=epsilon,
+                                     schedule_decay=schedule_decay)
+    else:
+        optimizer = optimizers.rmsprop(lr=learning_rate, rho=rho,
+                                       epsilon=epsilon, decay=decay)
+
+    if layers < 2:
+        raise ValueError('LstmRegressor must have at least two layers.')
+
+    model = Sequential()
+
+    model.add(LSTM(input_shape=(input_length, input_dim), units=hidden_size,
+                   return_sequences=True))
+    model.add(Dropout(dropout))
+
+    for _ in range(layers - 2):
+        model.add(LSTM(hidden_size, return_sequences=True))
         model.add(Dropout(dropout))
 
-        for _ in range(layers - 2):
-            model.add(LSTM(hidden_size, return_sequences=True))
-            model.add(Dropout(dropout))
+    model.add(LSTM(hidden_size, return_sequences=False))
+    model.add(Dropout(dropout))
 
-        model.add(LSTM(hidden_size, return_sequences=False))
-        model.add(Dropout(dropout))
+    model.add(Dense(units=output_dim))
+    model.add(Activation('linear'))
 
-        model.add(Dense(units=output_dim))
-        model.add(Activation('linear'))
+    model.compile(loss=loss, optimizer=optimizer)
 
-        model.compile(loss=loss, optimizer=optimizer)
-
-        self.model = model
-
-
-    def fit(self, X, y, epochs=200, batch_size=256, verbose=0):
-        self.model.fit(X, y, epochs=epochs, batch_size=batch_size,
-                       verbose=verbose)
-        return self
-
-
-    def predict(self, X):
-        return self.model.predict(X)
+    return model
 
 
 class ArimaRegressor(BaseEstimator, RegressorMixin):
@@ -200,21 +214,8 @@ def build_dataset(values, shift=1, price_column=0, lookback=0):
     return x, y
 
 
-def build_lstm(input_dim=1, input_length=1, output_dim=1, dropout=0.4,
-               hidden_size=32, layers=3, loss='mse', optimizer='nadam'):
-
-    return LstmRegressor(
-        input_dim, input_length, output_dim, dropout, hidden_size, layers,
-        loss, optimizer
-    )
-
-
 def build_arima(n_ar_params=3, n_ar_diffs=1, n_ma_params=1, freq='D'):
     return ArimaRegressor(n_ar_params, n_ar_diffs, n_ma_params, freq)
-
-
-def build_linear_regressor(normalize=False):
-    return LinearRegression(normalize=normalize, n_jobs=-1)
 
 
 def sma_predictions(X_test):
@@ -222,12 +223,103 @@ def sma_predictions(X_test):
     return X_test[:, sma_column]
 
 
-def build_ridge_regressor(normalize=False):
-    return Ridge(normalize=normalize)
+def grid_search_arima(X, y, params, diffs, ma_params, cv, refit=True):
+    best_score, best_configuration, best_model = float('inf'), None, None
+    for p in params:
+        for d in diffs:
+            for m in ma_params:
+                arima = build_arima(p, d, m)
+                print('Cross-validating ARIMA with order %d %d %d' % (p, d, m))
+                for (train_index, test_index) in cv:
+                    try:
+                        X_train, X_test = X[train_index], X[test_index]
+                        y_train, y_test = y[train_index], y[test_index]
+                        arima.fit(X_train[:, 0], y_train[:, 0])
+                        arima_yhat = arima.predict(X_test[:, 0])
+                        score = mse(arima_yhat, y_test[:, 0])
+                        if score < best_score:
+                            best_score = score
+                            best_configuration = (p, d, m)
+                            best_model = arima
+                    except Exception as e:
+                        print('Exception ocurred while evaluating model '\
+                                '(%d, %d, %d): %s' % (p, d, m, e))
+    if best_model and refit:
+        best_model.fit(X, y)
+
+    print('Best ARIMA score: {}, configuration: {}'.format(best_score,
+                                                           best_configuration))
+
+    return best_score, best_configuration, best_model
 
 
-def build_huber_regressor():
-    return HuberRegressor()
+def cross_validate_model(model_name, X, y, refit=True, length=1):
+    model_name = model_name.lower().strip()
+    if model_name not in 'ols ridge huber knn arima lstm'.split():
+        raise ValueError('Model %s not supported.' % model_name)
+
+    tscv = TimeSeriesSplit(n_splits=3)
+    cv = [(train_index, test_index)
+          for train_index, test_index in tscv.split(X)]
+
+    if model_name == 'arima':
+        # This is different
+        return grid_search_arima(X, y, [1, 3, 5, 10], [0, 1, 2], [0, 1, 5], cv)
+
+    if model_name == 'lstm':
+        model = KerasRegressor(build_fn=build_lstm, epochs=600, verbose=0)
+        grid = [
+            {
+                'input_length': [length], 'dropout': [0.2, 0.4, 0.5, 0.6, 0.8],
+                'hidden_size': [32, 64, 128], 'input_dim': [X.shape[1]],
+                'layers': [2, 3, 4], 'optimizer': 'adam nadam'.split(),
+                'learning_rate': [0.001, 0.01, 0.1, 0.0001]
+            },
+            {
+                'input_length': [length], 'dropout': [0.2, 0.4, 0.5, 0.6, 0.8],
+                'hidden_size': [32, 64, 128],
+                'layers': [2, 3, 4], 'input_dim': [X.shape[1]],
+                'optimizer': ['rmsprop'], 'rho': [0.9, 0.95],
+                'learning_rate': [0.001, 0.01, 0.1, 0.0001]
+            },
+        ]
+        X = X.reshape(X.shape[0], length, X.shape[1])
+    elif model_name == 'ols':
+        model = LinearRegression()
+        grid = [{'normalize': [True, False], 'fit_intercept': [True, False],
+                 'n_jobs': [-1]}]
+    elif model_name == 'ridge':
+        model = Ridge()
+        grid = [{'alpha': [1.0, 10.0, 0.1, 0.01], 'normalize': [True, False],
+                 'fit_intercept': [True, False]}]
+    elif model_name == 'huber':
+        model = HuberRegressor()
+        grid = [{'epsilon': [1.1, 1.35, 1.5], 'max_iter': [10, 100, 1000],
+                 'fit_intercept': [True, False]}]
+    else:
+        # knn
+        model = KNeighborsRegressor()
+        grid = [{'n_neighbors': [3, 5, 10], 'weights': ['uniform', 'distance'],
+                 'p': [1, 2], 'n_jobs': [-1]}]
+    gs = GridSearchCV(estimator=model, param_grid=grid,
+                      n_jobs=-1 if model_name != 'lstm' else 1,
+                      cv=cv)
+    gs.fit(X, y)
+    return gs.best_score_, gs.best_params_, gs.best_estimator_
+
+
+def get_processed_dataset(ticker, train_size=0.8, shift=1, lookback=0):
+    df = load_data('data/%s.csv.gz' % ticker)
+    df, scaler = preprocess_data(df.values)
+
+    X, y = build_dataset(df, shift, 'all', lookback)
+    cut_point = int(train_size * X.shape[0])
+    X_train = X[:cut_point]
+    y_train = y[:cut_point]
+    X_test = X[cut_point:]
+    y_test = y[cut_point:]
+
+    return X_train, y_train, X_test, y_test, scaler
 
 
 def main():
@@ -236,131 +328,39 @@ def main():
     import seaborn as sns
     import matplotlib.pyplot as plt
 
-    ticker = 'IBM'
-    df = load_data('data/%s.csv.gz' % ticker)
-    df, scaler = preprocess_data(df.values)
+    for ticker in 'AAPL AIR BA FDX IBM MSFT T TSLA'.split():
+        for shift in [1, 5, 15, 21]:
+            X_train, y_train, X_test, y_test, scaler = get_processed_dataset(
+                ticker, .8, shift
+            )
+            y_train = y_train[:, 0].reshape(-1, 1)
+            y_test = y_test[:, 0].reshape(-1, 1)
 
-    shift = 1
-    lookback = 0
-    X, y = build_dataset(df, shift, 'all', lookback)
-    tscv = TimeSeriesSplit(n_splits=3)
-
-    arima = ArimaRegressor(5, 1, 1)
-    huber = build_huber_regressor()
-    ridge = build_ridge_regressor()
-    linear = build_linear_regressor()
-    for i, (train_index, test_index) in enumerate(tscv.split(X)):
-        try:
-            X_train, X_test = X[train_index], X[test_index]
-            y_train, y_test = y[train_index], y[test_index]
-
-            sma_yhat = sma_predictions(X_test)
-
-            if lookback:
-                arima.fit(X_train[:, -1, 0], y_train[:, 0])
-                arima_yhat = arima.predict(X_test[:, -1, 0].reshape((-1, 1)),
-                                           refit=False)
-            else:
-                arima.fit(X_train[:, 0], y_train[:, 0])
-                arima_yhat = arima.predict(X_test[:, 0], refit=False)
-
-            if lookback:
-                linear.fit(X_train[:, -1, 0].reshape((-1, 1)),
-                           y_train[:, 0].reshape((-1, 1)))
-                yhat = linear.predict(X_test[:, -1, 0].reshape((-1, 1)))
-            else:
-                linear.fit(X_train, y_train[:, 0])
-                yhat = linear.predict(X_test)
-
-            if lookback:
-                ridge.fit(X_train[:, -1, 0].reshape((-1, 1)),
-                          y_train[:, 0].reshape((-1, 1)))
-                ridge_yhat = ridge.predict(X_test[:, -1, 0].reshape((-1, 1)))
-            else:
-                ridge.fit(X_train, y_train[:, 0])
-                ridge_yhat = ridge.predict(X_test)
-
-            if lookback:
-                huber.fit(X_train[:, -1, 0].reshape((-1, 1)),
-                          y_train[:, 0].reshape((-1, 1)))
-                huber_yhat = huber.predict(X_test[:, -1, 0].reshape((-1, 1)))
-            else:
-                huber.fit(X_train, y_train[:, 0])
-                huber_yhat = huber.predict(X_test)
-
-            if lookback:
-                X_train_lstm = X_train[:, :, 0].reshape((-1, lookback, 1))
-                X_test_lstm = X_test[:, :, 0].reshape((-1, lookback, 1))
-            else:
-                X_train_lstm = X_train[:, 0].reshape((-1, 1))
-                X_train_lstm = X_train_lstm.reshape(
-                    (X_train_lstm.shape[0],
-                     1 if not lookback else lookback,
-                     X_train_lstm.shape[-1])
+            for model_name in 'ols ridge huber knn arima lstm'.split():
+                print('ticker: {}, model: {}, shift: {}'.format(
+                    ticker, model_name, shift)
                 )
-
-                X_test_lstm = X_test[:, 0].reshape((-1, 1))
-                X_test_lstm = X_test_lstm.reshape(
-                    (X_test_lstm.shape[0],
-                     1 if not lookback else lookback,
-                     X_test_lstm.shape[-1])
+                score, params, estimator = cross_validate_model(
+                    model_name,
+                    X_train,
+                    y_train,
                 )
-
-            lstm = build_lstm(input_length=lookback if lookback else 1)
-            lstm.fit(X_train_lstm, y_train[:, 0], epochs=200, batch_size=256,
-                     verbose=1)
-            lstm_yhat = lstm.predict(X_test_lstm)
-
-            true_y_test = scaler.inverse_transform(y_test)[:, 0]
-            tmp = y_test.copy()
-            tmp[:, 0] = yhat.reshape((-1,))
-            true_yhat = scaler.inverse_transform(tmp)[:, 0]
-            tmp[:, 0] = lstm_yhat.reshape((-1,))
-            true_lstm_yhat = scaler.inverse_transform(tmp)[:, 0]
-            tmp[:, 0] = arima_yhat.reshape((-1,))
-            true_arima_yhat = scaler.inverse_transform(tmp)[:, 0]
-            tmp[:, 0] = ridge_yhat.reshape((-1,))
-            true_ridge_yhat = scaler.inverse_transform(tmp)[:, 0]
-            tmp[:, 0] = huber_yhat.reshape((-1,))
-            true_huber_yhat = scaler.inverse_transform(tmp)[:, 0]
-
-            tmp[:, 0] = sma_yhat
-            true_sma_yhat = scaler.inverse_transform(tmp)[:, 0]
-
-            score = r2_score(true_sma_yhat, true_y_test)
-            print('Benchmark R2 Score:', score)
-
-            score = r2_score(true_yhat, true_y_test)
-            print('Linear R2 Score:', score)
-
-            score = r2_score(true_lstm_yhat, true_y_test)
-            print('LSTM R2 Score:', score)
-
-            score = r2_score(true_arima_yhat, true_y_test)
-            print('ARIMA R2 Score:', score)
-
-            score = r2_score(true_ridge_yhat, true_y_test)
-            print('ridge R2 Score:', score)
-
-            score = r2_score(true_huber_yhat, true_y_test)
-            print('huber R2 Score:', score)
-
-            fig = plt.figure()
-
-            plt.plot(true_sma_yhat)
-            plt.plot(true_yhat)
-            plt.plot(true_lstm_yhat)
-            plt.plot(true_arima_yhat)
-            plt.plot(true_ridge_yhat)
-            plt.plot(true_huber_yhat)
-            plt.plot(true_y_test)
-
-            plt.legend(('Benchmark', 'Linear Regression', 'LSTM', 'ARIMA', 'Actual'))
-            fig.savefig('%s-%d.pdf' % (ticker, i))
-
-        except Exception as e:
-            raise
-            print('Found exception %s. Continuing...' % e)
+                yhat = estimator.predict(X_test)
+                model = {
+                    'score': score,
+                    'params': params,
+                    'yhat': yhat,
+                    'mse': mse(yhat, y_test),
+                    'r2': r2_score(yhat, y_test),
+                    'y_test': y_test,
+                    'scaler': scaler,
+                }
+                if model_name != 'arima':
+                    model['estimator'] = estimator
+                joblib.dump(
+                    model,
+                    'models/{}-{}-{}.pkl'.format(model_name, ticker, shift)
+                )
 
 
 if __name__ == '__main__':
