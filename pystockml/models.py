@@ -167,7 +167,7 @@ def load_data(path, benchmark_path=None):
 
     if benchmark_path:
         benchmark = pd.read_csv(benchmark_path)
-    else:
+    elif 'beta' in COLUMNS:
         # Remove beta, which depends on benchmark
         COLUMNS.pop()
 
