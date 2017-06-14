@@ -80,6 +80,28 @@ def build_lstm(input_dim=1, input_length=1, output_dim=1, dropout=.4,
     return model
 
 
+def build_mlp(input_dim=1, output_dim=1, dropout=.5, hidden_size=64, layers=3,
+              loss='mse', optimizer='nadam'):
+
+    model = Sequential()
+
+    model.add(Dense(input_shape=(input_dim,), units=hidden_size))
+    model.add(Activation('relu'))
+    model.add(Dropout(dropout))
+
+    for _ in range(layers - 2):
+        model.add(Dense(hidden_size))
+        model.add(Activation('relu'))
+        model.add(Dropout(dropout))
+
+    model.add(Dense(units=output_dim))
+    model.add(Activation('linear'))
+
+    model.compile(loss=loss, optimizer=optimizer)
+
+    return model
+
+
 class ArimaRegressor(BaseEstimator, RegressorMixin):
     def __init__(self, n_ar_params=3, n_ar_diffs=1, n_ma_params=1, freq='D'):
         '''Builds an ARIMA regressor.
