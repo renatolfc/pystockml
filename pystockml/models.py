@@ -361,7 +361,7 @@ def get_processed_dataset(ticker, train_size=0.8, shift=1, lookback=0,
     df = load_data('data/%s.csv.gz' % ticker)
     df, scaler = preprocess_data(df.values)
 
-    X, y = build_dataset(df, shift, 'all', lookback)
+    X, y = build_dataset(df, shift, COLUMNS.index('adj_close'), lookback)
     cut_point = int(train_size * X.shape[0])
     X_train = X[:cut_point]
     y_train = y[:cut_point]
