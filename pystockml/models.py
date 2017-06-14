@@ -390,26 +390,32 @@ def main():
     import seaborn as sns
     import matplotlib.pyplot as plt
 
+    lookback = 0
     for ticker in 'AAPL AIR BA FDX IBM MSFT T TSLA'.split():
         for shift in [1, 5, 15, 21]:
-            X_train, y_train, X_test, y_test, scaler = get_processed_dataset(
-                ticker, .8, shift
-            )
-            y_train = y_train[:, 0].reshape(-1, 1)
-            y_test = y_test[:, 0].reshape(-1, 1)
+            #for model_name in 'ols ridge huber knn lstm arima'.split():
+            for model_name in 'ols ridge huber knn'.split():
+                X_train, y_train, X_test, y_test, scaler = get_processed_dataset(
+                    ticker, .8, shift, lookback, model_name == 'lstm'
+                )
 
-            for model_name in 'ols ridge huber knn arima lstm'.split():
                 print('ticker: {}, model: {}, shift: {}'.format(
                     ticker, model_name, shift)
                 )
-                score, params, estimator = cross_validate_model(
-                    model_name,
-                    X_train,
-                    y_train,
-                )
+                if model_name == 'lstm':
+                    params = dict(dropout=.8, hidden_size=32, input_dim=7,
+                                  input_length=1, layers=3,
+                                  optimizer='rmsprop')
+                    estimator = build_lstm(**params)
+                    estimator.fit(X_train, y_train, epochs=600, verbose=1)
+                else:
+                    score, params, estimator = cross_validate_model(
+                        model_name,
+                        X_train,
+                        y_train,
+                    )
                 yhat = estimator.predict(X_test)
                 model = {
-                    'score': score,
                     'params': params,
                     'yhat': yhat,
                     'mse': mse(yhat, y_test),
@@ -417,7 +423,10 @@ def main():
                     'y_test': y_test,
                     'scaler': scaler,
                 }
-                if model_name != 'arima':
+                print('ticker={}, shift={}, model={}, performance={}'.format(
+                    ticker, shift, model_name, r2_score(yhat, y_test),
+                ))
+                if model_name != 'arima' and model_name != 'lstm':
                     model['estimator'] = estimator
                 joblib.dump(
                     model,
