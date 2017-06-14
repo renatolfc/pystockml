@@ -35,8 +35,13 @@ def percent_bollinger(values, rm, rstd):
     if not isinstance(values, np.ndarray):
         values = values.values
 
-    return ((np.hstack((np.array([float('nan')]), values[1:])) - lower) /
+    tmp = ((np.hstack((np.array([float('nan')]), values[1:])) - lower) /
             (upper - lower))
+
+    tmp[np.isnan(tmp)] = 0
+    tmp[np.isinf(tmp)] = 0
+
+    return tmp
 
 
 def bollinger_bands(rm, rstd):
