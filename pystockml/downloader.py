@@ -18,7 +18,7 @@ def download(quandl, ticker, start_date, end_date):
 
 
 def save(df, ticker, datadir):
-    path = os.path.abspath(os.path.join(datadir, ticker + '.csv'))
+    path = os.path.abspath(os.path.join(datadir, ticker + '.csv.gz'))
     parent = os.path.dirname(path)
     if not os.path.exists(parent):
         os.makedirs(parent)
@@ -27,7 +27,7 @@ def save(df, ticker, datadir):
 
     # Date is our new index. So we can drop date and the first column, which is
     # a counter.
-    df[df.columns[2:]].to_csv(path)
+    df[df.columns[2:]].to_csv(path, compression='gzip')
 
 # tickers = ['IBM', 'GOOG', 'AAPL', 'TSLA', 'BA', 'AIR', 'MSFT', 'T', 'FDX']
 # start_date = '2006-01-01'
