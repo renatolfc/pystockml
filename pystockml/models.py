@@ -277,20 +277,13 @@ def cross_validate_model(model_name, X, y, refit=True, length=1):
         return grid_search_arima(X, y, [1, 3, 5, 10], [0, 1, 2], [0, 1, 5], cv)
 
     if model_name == 'lstm':
-        model = KerasRegressor(build_fn=build_lstm, epochs=600, verbose=0)
+        model = KerasRegressor(build_fn=build_lstm, epochs=25, verbose=1,
+                               batch_size=64)
         grid = [
             {
-                'input_length': [length], 'dropout': [0.2, 0.4, 0.5, 0.6, 0.8],
-                'hidden_size': [32, 64, 128], 'input_dim': [X.shape[1]],
-                'layers': [2, 3, 4], 'optimizer': 'adam nadam'.split(),
-                'learning_rate': [0.001, 0.01, 0.1, 0.0001]
-            },
-            {
-                'input_length': [length], 'dropout': [0.2, 0.4, 0.5, 0.6, 0.8],
-                'hidden_size': [32, 64, 128],
-                'layers': [2, 3, 4], 'input_dim': [X.shape[1]],
-                'optimizer': ['rmsprop'], 'rho': [0.9, 0.95],
-                'learning_rate': [0.001, 0.01, 0.1, 0.0001]
+                'input_length': [length], 'dropout': [0.2, 0.5, 0.8],
+                'hidden_size': [32, 64], 'input_dim': [X.shape[1]],
+                'layers': [2, 3], 'optimizer': 'adam nadam rmsprop'.split(),
             },
         ]
         X = X.reshape(X.shape[0], length, X.shape[1])
@@ -309,11 +302,11 @@ def cross_validate_model(model_name, X, y, refit=True, length=1):
     else:
         # knn
         model = KNeighborsRegressor()
-        grid = [{'n_neighbors': [3, 5, 10], 'weights': ['uniform', 'distance'],
+        grid = [{'n_neighbors': [1, 3, 5, 10], 'weights': ['uniform', 'distance'],
                  'p': [1, 2], 'n_jobs': [-1]}]
     gs = GridSearchCV(estimator=model, param_grid=grid,
                       n_jobs=-1 if model_name != 'lstm' else 1,
-                      cv=cv)
+                      cv=cv, verbose=0)
     gs.fit(X, y)
     return gs.best_score_, gs.best_params_, gs.best_estimator_
 
