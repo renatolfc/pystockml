@@ -188,14 +188,20 @@ def train_test_split(df):
 
 
 def build_dataset(values, shift=1, price_column=0, lookback=0):
-    ':param shift: How far into the future we want to look.'
+    '''Builds a training dataset.
+
+    :param values: The values to read from (dataframe).
+    :param shift: How far into the future we want to look.
+    :param price_column: The column that contains the adjusted close price.
+    :param lookback: How many points from the past we want to include.
+    '''
     x, y = [], []
 
     lines = len(values) - shift
     columns = values.shape[1] if len(values.shape) > 1 else None
 
     for i in range(lookback, lines - shift):
-        # This is *not* and off-by-one error. Assume you have a list of one
+        # This is *not* an off-by-one error. Assume you have a list of one
         # element, that i=0 and lookback=0:
         # >>> a = [1]
         # >>> a[0-0:0+1]
@@ -211,7 +217,9 @@ def build_dataset(values, shift=1, price_column=0, lookback=0):
         y = np.array(y)
     else:
         x = np.array(x).reshape((-1, columns if columns else 1))
-        y = np.array(y).reshape((-1, columns if columns else 1))
+        y = np.array(y).reshape((-1, columns if price_column == 'all'
+                                                or columns is None
+                                             else 1))
 
     return x, y
 
