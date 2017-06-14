@@ -368,6 +368,19 @@ def get_processed_dataset(ticker, train_size=0.8, shift=1, lookback=0,
     X_test = X[cut_point:]
     y_test = y[cut_point:]
 
+    if lstm and not lookback:
+        X_train = X_train.reshape(
+            X_train.shape[0],
+            lookback + 1,
+            X_train.shape[1]
+        )
+
+        X_test = X_test.reshape(
+            X_test.shape[0],
+            lookback + 1,
+            X_test.shape[1]
+        )
+
     return X_train, y_train, X_test, y_test, scaler
 
 
