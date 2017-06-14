@@ -311,7 +311,53 @@ def cross_validate_model(model_name, X, y, refit=True, length=1):
     return gs.best_score_, gs.best_params_, gs.best_estimator_
 
 
-def get_processed_dataset(ticker, train_size=0.8, shift=1, lookback=0):
+def get_preprocessed_datasets(tickers, train_size=.8, shift=.1, lookback=0,
+                              lstm=False):
+
+    dfs = []
+    scaler = MinMaxScaler(feature_range=(0, 1))
+
+    for ticker in tickers:
+        try:
+            df = load_data('data/%s.csv.gz' % ticker).fillna(method='bfill')
+            scaler.partial_fit(df)
+            dfs.append(df)
+        except Exception as e:
+            print('Ignoring {} because I failed to read it: {}'
+                  .format(ticker,e))
+            continue
+
+    dfs = [scaler.transform(df) for df in dfs]
+    ret = {}
+
+    for ticker, df in zip(tickers, dfs):
+        X, y = build_dataset(df, shift, COLUMNS.index('adj_close'), lookback)
+        cut_point = int(train_size * X.shape[0])
+        X_train = X[:cut_point]
+        y_train = y[:cut_point]
+        X_test = X[cut_point:]
+        y_test = y[cut_point:]
+
+        if lstm and not lookback:
+            X_train = X_train.reshape(
+                X_train.shape[0],
+                lookback + 1,
+                X_train.shape[1]
+            )
+
+            X_test = X_test.reshape(
+                X_test.shape[0],
+                lookback + 1,
+                X_test.shape[1]
+            )
+
+        ret[ticker] = X_train, y_train, X_test, y_test
+
+    return ret, scaler
+
+
+def get_processed_dataset(ticker, train_size=0.8, shift=1, lookback=0,
+                          lstm=False):
     df = load_data('data/%s.csv.gz' % ticker)
     df, scaler = preprocess_data(df.values)
 
