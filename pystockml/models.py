@@ -34,27 +34,7 @@ COLUMNS = r'adj_close sma bandwidth %b momentum volatility adj_volume '\
 
 
 def build_lstm(input_dim=1, input_length=1, output_dim=1, dropout=.4,
-               hidden_size=32, layers=3, loss='mse', optimizer='nadam',
-               learning_rate=0.01, beta_1=0.9, beta_2=0.999, epsilon=1E-8,
-               schedule_decay=0.005, rho=0.9, decay=0.0):
-
-    from keras import optimizers
-
-    if optimizer not in 'adam nadam rmsprop'.split():
-        raise ValueError('Optimizer %s not supported.' % optimizer)
-
-    optimizer = optimizer.lower().strip()
-    if optimizer == 'adam':
-        optimizer = optimizers.adam(lr=learning_rate, beta_1=beta_1,
-                                    beta_2=beta_2, epsilon=epsilon,
-                                    decay=decay)
-    elif optimizer == 'nadam':
-        optimizer = optimizers.nadam(lr=learning_rate, beta_1=beta_1,
-                                     beta_2=beta_2, epsilon=epsilon,
-                                     schedule_decay=schedule_decay)
-    else:
-        optimizer = optimizers.rmsprop(lr=learning_rate, rho=rho,
-                                       epsilon=epsilon, decay=decay)
+               hidden_size=32, layers=3, loss='mse', optimizer='nadam'):
 
     if layers < 2:
         raise ValueError('LstmRegressor must have at least two layers.')
