@@ -358,8 +358,13 @@ def get_preprocessed_datasets(tickers, train_size=.8, shift=.1, lookback=0,
 
 
 def get_processed_dataset(ticker, train_size=0.8, shift=1, lookback=0,
-                          lstm=False):
+                          lstm=False, start_date=None, end_date=None):
     df = load_data('data/%s.csv.gz' % ticker)
+
+    df.index.name = 'dates'
+    if start_date and end_date:
+        df = df.query('"%s" < dates < "%s"' % (start_date, end_date))
+
     df, scaler = preprocess_data(df.values)
 
     X, y = build_dataset(df, shift, COLUMNS.index('adj_close'), lookback)
