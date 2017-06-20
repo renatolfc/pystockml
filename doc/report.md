@@ -3,7 +3,6 @@
 % June 07th, 2017
 
 # I. Definition
-_(approx. 1-2 pages)_
 
 ## Project Overview
 
@@ -127,7 +126,6 @@ of being independent of magnitude of the data and of being standardize, where
 1 is the score of a model that perfectly fits the data.
 
 # II. Analysis
-_(approx. 2-4 pages)_
 
 ## Data Exploration and visualization
 
@@ -270,7 +268,6 @@ The rolling mean makes sense because it averages out the volatility of the
 stock, but still changes over time.
 
 # III. Methodology
-_(approx. 3-5 pages)_
 
 ## Data Preprocessing
 
@@ -494,11 +491,80 @@ makes them extremely slow to evaluate. Hence, while exploring parameter values,
 we did not refit the model (nor did we show in the excerpt above how the refit
 is implemented, directing the reader to the source code).
 
-The ARIMA model had convergence problems for some sets of parameters, and also
-failed to converge with lower order parameters. Add this to the already-defined
-problems and we decided to remove the ARIMA model from the final evaluation.
-
 ## Refinement
+
+As aforementioned, we implemented various models. All models were optimized by
+performing a cross-validated parameter search. The search was performed for
+each individual ticker (stock name). Hence, each ticker can have its own
+optimized set of parameters for the models.
+
+### Grid Search CV parameters
+
+In this section we describe the parameters used for searching for the best
+models.
+
+#### Ordinary Least Squares (ols)
+
+\scriptsize
+
+```python
+grid = [{'normalize': [True, False], 'fit_intercept': [True, False],
+         'n_jobs': [-1]}]
+```
+\normalsize
+
+#### Ridge Regression (ridge)
+
+\scriptsize
+
+```python
+grid = [{'alpha': [1.0, 10.0, 0.1, 0.01], 'normalize': [True, False],
+         'fit_intercept': [True, False]}]
+```
+\normalsize
+
+#### Huber Regression (huber)
+
+\scriptsize
+
+```python
+grid = [{'epsilon': [1.1, 1.35, 1.5], 'max_iter': [10, 100, 1000],
+         'fit_intercept': [True, False]}]
+
+```
+\normalsize
+
+#### K-nearest Neighbors (knn)
+
+\scriptsize
+
+```python
+grid = [{'n_neighbors': [1, 3, 5, 10], 'weights': ['uniform', 'distance'],
+         'p': [1, 2], 'n_jobs': [-1]}]
+```
+\normalsize
+
+#### ARIMA (arima)
+
+We searched for AR = [1, 3, 5, 10], I = [0, 1, 2], MA = [0, 1, 5].
+
+#### LSTM (lstm)
+
+\scriptsize
+
+```python
+grid = [
+    {
+        'input_length': [length], 'dropout': [0.2, 0.5, 0.8],
+        'hidden_size': [32, 64], 'input_dim': [X.shape[1]],
+        'layers': [2, 3], 'optimizer': 'adam nadam rmsprop'.split(),
+    },
+]
+```
+
+\normalsize
+
+### Model adaptations
 
 Training the LSTM was particularly complicated due to the number of parameters
 and the time it takes to train an LSTM. Also, since we only own one GPU, this
@@ -520,116 +586,235 @@ implementation of numpy and scipy use the Intel Math Kernel Library® as LAPACK
 implementation and it was configured to use a number of threads equal to the
 number of cores in the evaluation computer.
 
-In this section, you will need to discuss the process of improvement you made
-upon the algorithms and techniques you used in your implementation. For
-example, adjusting parameters for certain models to acquire improved solutions
-would fall under the refinement category. Your initial and final solutions
-should be reported, as well as any significant intermediate results as
-necessary. Questions to ask yourself when writing this section:
+### Performance
 
-- _Has an initial solution been found and clearly reported?_
-- _Is the process of improvement clearly documented, such as what techniques
-  were used?_
-- _Are intermediate and final solutions clearly reported as the process is
-  improved?_
+If one takes a look at the performance of the algorithms, summarized on the
+table at the end of this section and Figure \ref{T-perf}, one will be able to
+see that the linear models are unbeatable. It is particularly interesting that
+models that are appropriate for modeling time series (such as ARIMA and LSTMs)
+did not perform well in this task. The reason for ARIMA not performing well is
+that, in the way it is implemented, it disregards information other than the
+adjusted close prices to make predictions and it uses forecast values as input
+for new forecasts (making one at a time), which explains the mostly-straight
+lines shown in the figures.
+
+To improve the ARIMA performance, one could retrain the model every time a new
+prediction was made, but preliminary experiments showed that this approach is
+computationally-intensive and would dominate by a large extent, the amount of
+computation done in this project. Due to that, ARIMA models will be ignored
+from now on.
+
+![Algorithm Performance for the T (AT&T) ticker.\label{T-perf}](img/T-perf.png)
+
+|Ticker | Shift | OLS    | Ridge  | Huber  | Knn       | LSTM        | ARIMA      | Benchmark |
+|-------|-------|--------|--------|--------|-----------|-------------|------------|-----------|
+| APPL  | 1     | 0.9886 | 0.9884 | 0.9887 |*0.5203*   |*-17.0420*   |*-4.0723*   | 0.8741    |
+| APPL  | 5     | 0.9390 | 0.9380 | 0.9388 |*0.3579*   |*-31.8449*   |*-4.0612*   | 0.8039    |
+| APPL  | 15    | 0.7699 | 0.7671 | 0.7645 |*0.2820*   |*-40.0810*   |*-4.0681*   | 0.5734    |
+| APPL  | 21    | 0.6233 | 0.6183 | 0.6192 |*0.2287*   |*-40.7763*   |*-4.0891*   | 0.3759    |
+| AIR   | 1     | 0.9896 | 0.9896 | 0.9897 |*0.6736*   |*-0.4376*    |*-5.4981*   | 0.9091    |
+| AIR   | 5     | 0.9378 | 0.9366 | 0.9394 |*0.3591*   |*-0.9717*    |*-109.0892* | 0.8558    |
+| AIR   | 15    | 0.7534 | 0.7519 | 0.7491 |*-1.0982*  |*-2.0955*    |*-5.5199*   | 0.7038    |
+| AIR   | 21    | 0.6386 | 0.6462 | 0.6485 |*-1.3803*  |*-2.7057*    |*-5.2811*   | 0.6070    |
+| BA    | 1     | 0.9907 | 0.9906 | 0.9907 |*-0.7141*  |*-2057.8908* |*-2.1052*   | 0.9273    |
+| BA    | 5     | 0.9466 | 0.9461 | 0.9470 |*-1.2264*  |*-4843.8447* |*-2.3643*   | 0.8798    |
+| BA    | 15    | 0.8123 | 0.8016 | 0.8150 |*-1.8076*  |*-6388.6555* |*-3.0886*   | 0.6888    |
+| BA    | 21    | 0.6986 | 0.6786 | 0.6968 |*-3.6503*  |*-4059.9665* |*-3.3305*   | 0.4947    |
+| FDX   | 1     | 0.9850 | 0.9847 | 0.9850 |*0.3992*   |*-14.2415*   |*-2.5886*   | 0.8481    |
+| FDX   | 5     | 0.9180 | 0.9173 | 0.9181 |*0.1958*   |*-24.5070*   |*-5.9925*   | 0.7846    |
+| FDX   | 15    | 0.7544 | 0.7518 | 0.7526 |*-0.1386*  |*-12.8465*   |*-2.5180*   | 0.5913    |
+| FDX   | 21    | 0.6433 | 0.5885 | 0.6445 |*-0.4886*  |*-11.2130*   |*-3.7567*   | 0.4444    |
+| IBM   | 1     | 0.9860 | 0.9859 | 0.9858 |*0.8640*   |*0.7604*     |*-273.1294* | 0.8971    |
+| IBM   | 5     | 0.9290 | 0.9287 | 0.9278 |*0.6546*   |*0.6592*     |*-235.0801* | 0.8355    |
+| IBM   | 15    | 0.7732 | 0.7666 | 0.7738 |*0.2771*   |*0.2506*     |*-25.9402*  | 0.6811    |
+| IBM   | 21    | 0.6608 | 0.6508 | 0.6690 |*0.0707*   |*-0.1858*    |*-7.5973*   | 0.5801    |
+| MSFT  | 1     | 0.9915 | 0.9913 | 0.9914 |*-33.5231* |*-4368.6207* |*0.6251*    | 0.9518    |
+| MSFT  | 5     | 0.9536 | 0.9530 | 0.9562 |*-58.3890* |*-4911.8961* |*0.7638*    | 0.9218    |
+| MSFT  | 15    | 0.8586 | 0.8569 | 0.8677 |*-107.6200*|*-1752.8686* |*-5.2652*   | 0.8463    |
+| MSFT  | 21    |*0.7957*|*0.7978*| 0.8192 |*-136.1821*|*-2253.2481* |*-16.7502*  | 0.8002    |
+|  T    | 1     | 0.9932 | 0.9930 | 0.9934 |*-118.8841*|*-81107.1910*|*-8.1511*   | 0.9468    |
+|  T    | 5     | 0.9643 | 0.9638 | 0.9655 |*-175.3260*|*-32127.9919*|*-128.1239* | 0.9176    |
+|  T    | 15    | 0.8805 | 0.8796 | 0.8822 |*-397.1407*|*-15681.8341*|*-4330.8477*| 0.8453    |
+|  T    | 21    | 0.8078 | 0.8015 | 0.8136 |*-482.0043*|*-19511.6227*|*-387.8690* | 0.8015    |
+
+With regards to the LSTM models, although they were able to model the overall
+trends in the data, they were unable to outperform the linear models, even when
+lookback[^4] is implemented. Notice that both an automated and a manual
+parameter search were performed with the LSTM models. With an LSTM using
+a lookback of 100 (meaning it uses data of the previous 100 business days to
+make a prediction) and a hidden LSTM cell size of 128, three layers and
+optimized with the Nesterov Adam optimizer, trained with a batch size of 256
+for 4000 epochs (such a model trained for approximately three hours on
+a GeForce GTX 1070 GPU), we were able to obtain the R^2 scores shown in the
+table below for each ticker with a 21 day in advance prediction. So, even with
+a considerable amount of training time, we were unable to produce an LSTM that
+outperforms the benchmark. Therefore, we conclude that, for this project, the
+predictor of choice is the one based on Huber regression.
+
+| Ticker | R^2 Score |
+|--------|-----------|
+| AAPL   | 0.5349    |
+| AIR    | 0.3196    |
+| BA     | 0.4879    |
+| FDX    | 0.2359    |
+| IBM    | 0.5961    |
+| MSFT   | 0.8154    |
+| T      | 0.8013    |
+
+[^4]: Lookback is the number of points we store and look at when performing
+  a prediction. If lookback is 5, for example, we will look at today plus the
+  previous four days when performing a prediction.
 
 # IV. Results
 _(approx. 2-3 pages)_
 
 ## Model Evaluation and Validation
 
-In this section, the final model and any supporting qualities should be
-evaluated in detail. It should be clear how the final model was derived and why
-this model was chosen. In addition, some type of analysis should be used to
-validate the robustness of this model and its solution, such as manipulating
-the input data or environment to see how the model’s solution is affected (this
-is called sensitivity analysis). Questions to ask yourself when writing this
-section:
+By observing the table above, one can see that the only algorithm that
+consistently beats the benchmark[^5] is the Huber Regressor. Therefore, it
+should be the model used in further predictions. One of the many advantages of
+the Huber Regression model is that it is a linear model, so it is extremely
+fast to train and even a cross-validated grid search can be done using the
+training data at runtime. Notice that in the table where we show predictor
+performance for each predictor, we show the performance in the test set.
+Therefore, we already showed performance in unseen data. Still, we can compare
+the performance of the Huber regressor with the benchmark on an unseen ticker
+(TSLA, for Tesla motors).
 
-- _Is the final model reasonable and aligning with solution expectations? Are
-  the final parameters of the model appropriate?_
-- _Has the final model been tested with various inputs to evaluate whether the
-  model generalizes well to unseen data?_
-- _Is the model robust enough for the problem? Do small perturbations (changes)
-  in training data or the input space greatly affect the results?_
-- _Can results found from the model be trusted?_
+\scriptsize
+
+```python
+from pystockml import models
+
+for shift in [1, 5, 15, 21]:
+    lookback = 0
+    ticker = 'TSLA'
+    X_train, y_train, X_test, y_test, scaler = models.get_processed_dataset(
+        ticker, .8, shift, lookback, False
+    )
+    _, _, model = models.cross_validate_model('huber', X_train, y_train)
+    yhat = model.predict(X_test)
+    sma_yhat = models.sma_predictions(X_test)
+    print(ticker, shift, models.r2_score(yhat, y_test),
+          models.r2_score(sma_yhat, y_test))
+```
+
+\normalsize
+
+Consider, for example, the block of code above. The data in the table below
+summarizes the results obtained when such a code was executed. As can be seen
+from the table, the Huber regressor significantly outperforms the benchmark in
+the TSLA ticker.
+
+| Shift | Huber Score | Benchmark Score |
+|-------|-------------|-----------------|
+| 1     | 0.9799      | 0.7948          |
+| 5     | 0.8878      | 0.6163          |
+| 15    | 0.4214      | -0.1565         |
+| 21    | -0.1433     | -0.5871         |
+
+[^5]: The benchmark is the moving average of the last 21 days of the stock.
+
+From the above discussion, it seems that, for most stocks, the model results
+*can* be trusted, especially when predicting a few days in advance. Also, the
+model is simple to understand and simple to train, making it a good candidate
+for predictions.
 
 ## Justification
 
-In this section, your model’s final solution and its results should be compared
-to the benchmark you established earlier in the project using some type of
-statistical analysis. You should also justify whether these results and the
-solution are significant enough to have solved the problem posed in the
-project. Questions to ask yourself when writing this section:
-
-- _Are the final results found stronger than the benchmark result reported
-  earlier?_
-- _Have you thoroughly analyzed and discussed the final solution?_
-- _Is the final solution significant enough to have solved the problem?_
-
+Although the model seems to be good enough for predicting stock prices,
+a significant part of the predictability comes from the autoregressive nature
+of the data. So, although the model is better than the benchmark, we can't
+claim the problem of predicting stock prices to be solved. An investor that
+relied on such a model would probably make a little bit of money for a long
+time, but might be still subject to big losses (and gains) in some times.
 
 # V. Conclusion
-_(approx. 1-2 pages)_
 
 ## Free-Form Visualization
 
-In this section, you will need to provide some form of visualization that
-emphasizes an important quality about the project. It is much more free-form,
-but should reasonably support a significant result or characteristic about the
-problem that you want to discuss. Questions to ask yourself when writing this
-section:
+As mentioned above, we also evaluated the model with the TSLA ticker. This is
+a particularly interesting dataset because, as shown in Figure
+\ref{five-stock}, the stock begins having a very low value for two years,
+before gaining value abruptly. Therefore, simplistic models that let themselves
+be influenced by that period might have their performance affected negatively.
+Notwidthstanding that, the model was able to predict TSLA stock prices
+significantly better than the benchmark, as shown in the previous table and in
+figure \ref{TSLA-perf}.
 
-- _Have you visualized a relevant or important quality about the problem,
-  dataset, input data, or results?_
-- _Is the visualization thoroughly analyzed and discussed?_
-- _If a plot is provided, are the axes, title, and datum clearly defined?_
+![Algorithm Performance for the TSLA (TESLA) ticker.\label{TSLA-perf}](img/TSLA-perf.png)
 
 ## Reflection
 
-In this section, you will summarize the entire end-to-end problem solution and
-discuss one or two particular aspects of the project you found interesting or
-difficult. You are expected to reflect on the project as a whole to show that
-you have a firm understanding of the entire process employed in your work.
-Questions to ask yourself when writing this section:
+In this project we built a stock price predictor that works in an
+end-to-end[^6] manner by writing code to download stock price data from Quandl,
+doing feature engineering by computing financial statistics on top of the data,
+normalizing the data to fall between zero and one, preparing the dataset for
+time series prediction, training the model and outputting the prediction.
+A sample execution of the prediction script is shown below, where we predict
+four days in advance the price of the IBM stock trained from 2010-01-01 to
+2011-01-01[^7].
 
-- _Have you thoroughly summarized the entire process you used for this
-  project?_
-- _Were there any interesting aspects of the project?_
-- _Were there any difficult aspects of the project?_
-- _Does the final model and solution fit your expectations for the problem, and
-  should it be used in a general setting to solve these types of problems?_
+```
+$ ./predict.py IBM 2010-01-01 2011-01-01 4
+Using TensorFlow backend.
+Loading data...
+Training model...
+Predicting...
+Predicted value: 122.515657496
+```
+
+[^6]: Although the code is present, the download itself won't work due to the
+  lack of a Quandl API key in the repository.
+
+[^7]: The prediction offset is relative to the end date passed into the script.
+
+One striking characteristic of this project is that generalized linear models
+performed much better than more complex models. They outperformed even
+multilayer perceptron neural networks (not shown in this document), Recurrent
+Neural Networks, and ARIMA models. Also is remarkable the fact that even
+a simplistic algorithm such as a moving average performs relatively well when
+compared to the other more complex models.
+
+A considerable amount of time in the development was devoted to finding a good
+LSTM model that could outperform the linear models. This was particularly
+frustrating, given the large amount of time it takes to train LSTMs when
+compared to the other models discussed. It is also worth mentioning that
+building an ARIMA predictor using statsmodels to fit the sklearn API was
+complicated, because statsmodels is very different from sklearn. So, the
+fit/predict pipeline was not as efficient as it could be, and we were unable to
+pickle the model using joblib (an issue we also had with the LSTM model).
+
+Also challenging was structuring the code in a way that could be easily
+consumable by client code (in our case, a client script), which involved many
+refactorings of the code.
+
+Still, even with these bumps in the road, we have confidence the developed
+model could be used in a general setting, *especially* due to its simplicity.
+Obviously, if it was integrated into a more complex systems, one would be
+required to exercise judgement before taking decisions based on these
+predictions. Still, we find such a model could be useful in the real world.
 
 ## Improvement
 
-In this section, you will need to provide discussion as to how one aspect of
-the implementation you designed could be improved. As an example, consider ways
-your implementation can be made more general, and what would need to be
-modified. You do not need to make this improvement, but the potential solutions
-resulting from these changes are considered and compared/contrasted to your
-current solution. Questions to ask yourself when writing this section:
+We haven't even scratched the surface of applying machine learning to financial
+settings. This implementation could be extended to perform portfolio
+allocations, for example, and predicting the performance of such portfolios.
+Also, except in experiments with the LSTM model, we train one different model
+for each ticker, and more investigations should be made into the viability of
+using a single linear model for all stocks.
 
-- _Are there further improvements that could be made on the algorithms or
-  techniques you used in this project?_
-- _Were there algorithms or techniques you researched that you did not know how
-  to implement, but would consider using if you knew how?_
-- _If you used your final solution as the new benchmark, do you think an even
-  better solution exists?_
+With regards to data gathering, the code could be improved to support
+a configuration file and do automatic data updates to always make predictions
+with fresh data.
 
------------
+On the topic of models, initial experiments with boosted models weren't
+promising, but a more systematic evaluation could be helpful.  About the LSTM,
+an evaluation with differenced data could be made. We didn't investigate it in
+this project because such a change would require a refactor.
 
-**Before submitting, ask yourself. . .**
-
-- Does the project report you’ve written follow a well-organized structure
-  similar to that of the project template?
-- Is each section (particularly **Analysis** and **Methodology**) written in
-  a clear, concise and specific fashion? Are there any ambiguous terms or
-  phrases that need clarification?
-- Would the intended audience of your project be able to understand your
-  analysis, methods, and results?
-- Have you properly proof-read your project report to assure there are minimal
-  grammatical and spelling mistakes?
-- Are all the resources used for this project correctly cited and referenced?
-- Is the code that implements your solution easily readable and properly
-  commented?
-- Does the code execute without error and produce results similar to those
-  reported?
+As a final thought, we find it odd that none of the more complex models could
+outperform simple linear models when the data is not linear. Were the Huber
+regression model selected as the benchmark, we would have a hard time solving
+this problem and would probably have to reimplement major parts of the code in
+trying to beat it.
