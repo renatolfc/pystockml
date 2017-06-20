@@ -5,6 +5,7 @@
 
 import numpy as np
 import pandas as pd
+from pandas.tseries.offsets import BDay as business_day
 
 from keras.wrappers.scikit_learn import KerasRegressor
 from keras.layers.core import Dense, Activation, Dropout
@@ -277,7 +278,7 @@ def cross_validate_model(model_name, X, y, refit=True, length=1):
         return grid_search_arima(X, y, [1, 3, 5, 10], [0, 1, 2], [0, 1, 5], cv)
 
     if model_name == 'lstm':
-        model = KerasRegressor(build_fn=build_lstm, epochs=25, verbose=1,
+        model = KerasRegressor(build_fn=build_lstm, epochs=25, verbose=0,
                                batch_size=64)
         grid = [
             {
@@ -391,13 +392,19 @@ def main():
     import matplotlib.pyplot as plt
 
     lookback = 0
-    for ticker in 'AAPL AIR BA FDX IBM MSFT T TSLA'.split():
-        for shift in [1, 5, 15, 21]:
-            #for model_name in 'ols ridge huber knn lstm arima'.split():
-            for model_name in 'ols ridge huber knn'.split():
+    dfs = {}
+    preds = {}
+    for ticker in 'AAPL AIR BA FDX IBM MSFT T'.split():
+        for shift in reversed([1, 5, 15, 21]):
+            for model_name in 'ols ridge huber knn lstm arima'.split():
+                df = load_data('data/%s.csv.gz' % ticker)
                 X_train, y_train, X_test, y_test, scaler = get_processed_dataset(
                     ticker, .8, shift, lookback, model_name == 'lstm'
                 )
+
+                origin = pd.Timestamp(df.index.values[-len(y_test)])
+                dates = [business_day(i) + origin for i in
+                         range(shift, len(y_test) + shift)]
 
                 print('ticker: {}, model: {}, shift: {}'.format(
                     ticker, model_name, shift)
@@ -407,7 +414,11 @@ def main():
                                   input_length=1, layers=3,
                                   optimizer='rmsprop')
                     estimator = build_lstm(**params)
-                    estimator.fit(X_train, y_train, epochs=600, verbose=1)
+                    estimator.fit(X_train, y_train, epochs=600, verbose=0)
+                elif model_name == 'arima':
+                    params = (5, 1, 1)
+                    estimator = ArimaRegressor(10, 2, 1)
+                    estimator.fit(X_train, y_train)
                 else:
                     score, params, estimator = cross_validate_model(
                         model_name,
@@ -423,16 +434,46 @@ def main():
                     'y_test': y_test,
                     'scaler': scaler,
                 }
+
+                joblib.dump(
+                    model,
+                    'models/{}-{}-{}.pkl'.format(ticker, model_name, shift)
+                )
+
                 print('ticker={}, shift={}, model={}, performance={}'.format(
                     ticker, shift, model_name, r2_score(yhat, y_test),
                 ))
-                if model_name != 'arima' and model_name != 'lstm':
-                    model['estimator'] = estimator
-                joblib.dump(
-                    model,
-                    'models/{}-{}-{}.pkl'.format(model_name, ticker, shift)
-                )
 
+                preds[model_name] = yhat
+            sma_yhat = sma_predictions(X_test)
+
+            dfs[shift] = pd.DataFrame(index=dates)
+
+            tmp = X_test.copy()
+            tmp[:, COLUMNS.index('adj_close')] = y_test[:, 0]
+            tmp = scaler.inverse_transform(tmp)
+            dfs[shift]['True'] = tmp[:, COLUMNS.index('adj_close')]
+            dfs[shift]['True'].values[shift:] = dfs[shift]['True'].values[:-shift]
+            dfs[shift]['True'].values[-shift:] = np.nan
+
+            tmp[:, COLUMNS.index('adj_close')] = sma_yhat
+            tmp = scaler.inverse_transform(tmp)
+
+            dfs[shift]['Benchmark'] = tmp[:, COLUMNS.index('adj_close')]
+            for model_name in 'ols ridge huber knn lstm arima'.split():
+                tmp = X_test.copy()
+                tmp[:, COLUMNS.index('adj_close')] = preds[model_name].reshape((preds[model_name].shape[0],))
+                tmp = scaler.inverse_transform(tmp)
+                dfs[shift][model_name] = tmp[:, COLUMNS.index('adj_close')]
+            bla = dfs[shift].plot(
+                title=('%s stock price prediction %d day(s) in advance'
+                       % (ticker, shift)),
+                use_index=True, kind='line', colormap='Accent'
+            )
+            plt.xlabel('Date')
+            plt.ylabel('Price ($)')
+            plt.savefig('{}-{}.pdf'.format(ticker, shift))
+            plt.close()
 
 if __name__ == '__main__':
     main()
