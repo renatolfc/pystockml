@@ -36,6 +36,20 @@ COLUMNS = r'adj_close sma bandwidth %b momentum volatility adj_volume '\
 
 def build_lstm(input_dim=1, input_length=1, output_dim=1, dropout=.4,
                hidden_size=32, layers=3, loss='mse', optimizer='nadam'):
+    '''Builds an LSTM (a Recurrent Neural Netwok).
+
+    This function can be used by itself, but it was designed to be used with
+    `KerasRegressor`.
+
+    :param input_dim: The number of features in the input data.
+    :param input_lenght: The number of time steps in the input data.
+    :param output_dim: The number of predicted values.
+    :param dropout: Probability of dropping (deactivating) a neuron.
+    :param hidden_size: Dimensionality of the hidden neurons.
+    :param layers: The number of layers in the neural network.
+    :param loss: The loss function to use (a string or a callable).
+    :param optimizer: The optimizer to use.
+    '''
 
     if layers < 2:
         raise ValueError('LstmRegressor must have at least two layers.')
@@ -63,6 +77,19 @@ def build_lstm(input_dim=1, input_length=1, output_dim=1, dropout=.4,
 
 def build_mlp(input_dim=1, output_dim=1, dropout=.5, hidden_size=64, layers=3,
               loss='mse', optimizer='nadam'):
+    '''Builds an MLP (a MultiLayer Perceptron -- feedforward neural net).
+
+    This function can be used by itself, but it was designed to be used with
+    `KerasRegressor`.
+
+    :param input_dim: The number of features in the input data.
+    :param output_dim: The number of predicted values.
+    :param dropout: Probability of dropping (deactivating) a neuron.
+    :param hidden_size: Dimensionality of the hidden neurons.
+    :param layers: The number of layers in the neural network.
+    :param loss: The loss function to use (a string or a callable).
+    :param optimizer: The optimizer to use.
+    '''
 
     model = Sequential()
 
@@ -84,7 +111,9 @@ def build_mlp(input_dim=1, output_dim=1, dropout=.5, hidden_size=64, layers=3,
 
 
 class ArimaRegressor(BaseEstimator, RegressorMixin):
-    def __init__(self, n_ar_params=3, n_ar_diffs=1, n_ma_params=1, freq='D'):
+    'Wrapper of `statsmodels.tsa.arima_model.ARIMA`.'
+
+    def __init__(self, n_ar_params=3, n_ar_diffs=1, n_ma_params=1):
         '''Builds an ARIMA regressor.
 
         :param n_ar_params: The number of autoregressive parameters.
@@ -99,7 +128,7 @@ class ArimaRegressor(BaseEstimator, RegressorMixin):
 
         self.model, self.model_fit = None, None
 
-    def fit(self, X, y):
+    def fit(self, X, y):  # pylint disable=unused-argument
         '''Fit model.
 
         :param X: The input time series.
@@ -162,6 +191,12 @@ class ArimaRegressor(BaseEstimator, RegressorMixin):
 
 
 def load_data(path, benchmark_path=None):
+    '''Loads the data from path.
+
+    :param path: The path to the dataset to load.
+    :param benchmark_path: If passed, loads a benchmark to compute the finance
+                           beta.
+    '''
     benchmark = None
     df = pd.read_csv(path)
     df.index = df['date']
@@ -176,16 +211,11 @@ def load_data(path, benchmark_path=None):
 
 
 def preprocess_data(df):
+    'Preprocesses data by performing feature scaling.'
     scaler = MinMaxScaler(feature_range=(0, 1))
     df = scaler.fit_transform(df)
 
     return df, scaler
-
-
-def train_test_split(df):
-    train_size = int(len(df) * .5)
-
-    return df[:train_size], df[train_size:]
 
 
 def build_dataset(values, shift=1, price_column=0, lookback=0):
@@ -225,16 +255,23 @@ def build_dataset(values, shift=1, price_column=0, lookback=0):
     return x, y
 
 
-def build_arima(n_ar_params=3, n_ar_diffs=1, n_ma_params=1, freq='D'):
-    return ArimaRegressor(n_ar_params, n_ar_diffs, n_ma_params, freq)
+def build_arima(n_ar_params=3, n_ar_diffs=1, n_ma_params=1):
+    'Builds and ARIMA model.'
+    return ArimaRegressor(n_ar_params, n_ar_diffs, n_ma_params)
 
 
 def sma_predictions(X_test):
+    'Returns the predictions of the benchmark model.'
     sma_column = COLUMNS.index('sma')
     return X_test[:, sma_column]
 
 
 def grid_search_arima(X, y, params, diffs, ma_params, cv, refit=True):
+    '''Implements grid search for the ARIMA model.
+
+    This function is inspired by the blog post
+    http://machinelearningmastery.com/grid-search-arima-hyperparameters-with-python/
+    '''
     best_score, best_configuration, best_model = float('inf'), None, None
     for p in params:
         for d in diffs:
@@ -265,6 +302,14 @@ def grid_search_arima(X, y, params, diffs, ma_params, cv, refit=True):
 
 
 def cross_validate_model(model_name, X, y, refit=True, length=1):
+    '''Returns a cross-validated and trained model.
+
+    :param model_name: The name of the model to be used.
+    :param X: The input features.
+    :param y: The input labels.
+    :param refit: If True, refits the model after cross-validation.
+    :param length: Number of timesteps in input, only useful to LSTMs.
+    '''
     model_name = model_name.lower().strip()
     if model_name not in 'ols ridge huber knn arima lstm'.split():
         raise ValueError('Model %s not supported.' % model_name)
@@ -312,8 +357,17 @@ def cross_validate_model(model_name, X, y, refit=True, length=1):
     return gs.best_score_, gs.best_params_, gs.best_estimator_
 
 
-def get_preprocessed_datasets(tickers, train_size=.8, shift=.1, lookback=0,
+def get_preprocessed_datasets(tickers, train_size=.8, shift=1, lookback=0,
                               lstm=False):
+    '''Multiple dataset version of `get_processed_dataset`.
+
+    :param tickers: The names of the tickers to read.
+    :param train_size: The proportion to be used as training set.
+    :param shift: How many days to look in advance.
+    :param lookback: How many days to look into the past (this is the number of
+                     timesteps in the LSTM inputs).
+    :param lstm: Whether we are building data for an LSTM or not.
+    '''
 
     dfs = []
     scaler = MinMaxScaler(feature_range=(0, 1))
@@ -359,6 +413,15 @@ def get_preprocessed_datasets(tickers, train_size=.8, shift=.1, lookback=0,
 
 def get_processed_dataset(ticker, train_size=0.8, shift=1, lookback=0,
                           lstm=False, start_date=None, end_date=None):
+    '''Loads data, preprocesses it and builds a dataset.
+
+    :param tickers: The names of the tickers to read.
+    :param train_size: The proportion to be used as training set.
+    :param shift: How many days to look in advance.
+    :param lookback: How many days to look into the past (this is the number of
+                     timesteps in the LSTM inputs).
+    :param lstm: Whether we are building data for an LSTM or not.
+    '''
     df = load_data('data/%s.csv.gz' % ticker)
 
     df.index.name = 'dates'
@@ -391,6 +454,7 @@ def get_processed_dataset(ticker, train_size=0.8, shift=1, lookback=0,
 
 
 def main():
+    'Main function, used to evaluate models.'
     np.random.seed(1234)
 
     import seaborn as sns
