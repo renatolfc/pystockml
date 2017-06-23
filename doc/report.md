@@ -1,7 +1,3 @@
-% Machine Learning Engineer Nanodegree Capstone Project: Stock Price Predictor
-% Renato L. F. Cunha
-% June 07th, 2017
-
 # I. Definition
 
 ## Project Overview
@@ -666,7 +662,6 @@ predictor of choice is the one based on Huber regression.
   previous four days when performing a prediction.
 
 # IV. Results
-_(approx. 2-3 pages)_
 
 ## Model Evaluation and Validation
 
