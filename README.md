@@ -1,3 +1,7 @@
+This repository has been archived and won't be receiving any updates.
+This was born as a learning project about ML and was useful
+as a learning experience.
+
 # pystockml
 
 This is pystockml a python project that does stock price predictions using
